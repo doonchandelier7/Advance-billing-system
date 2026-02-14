@@ -1,0 +1,21 @@
+{
+  "name": "Advance Billing System",
+  "short_name": "Billing",
+  "description": "Advance Payment Billing System with AI Invoice Scan",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f46e5",
+  "orientation": "any",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["business", "finance"],
+  "prefer_related_applications": false
+}

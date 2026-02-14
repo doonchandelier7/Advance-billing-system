@@ -1,0 +1,157 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+/* ── Smooth scrollbar ── */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* ── Sidebar custom scrollbar ── */
+#sidebar::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+}
+
+/* ── Smooth transitions for interactive elements ── */
+a, button, input, select, textarea {
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+}
+
+/* ── Fade-in animation for page content ── */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in-up {
+    animation: fadeInUp 0.4s ease-out both;
+}
+
+/* ── Slide-down for forms & panels ── */
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        max-height: 1000px;
+    }
+}
+
+.animate-slide-down {
+    animation: slideDown 0.3s ease-out both;
+}
+
+/* ── Sidebar overlay for mobile ── */
+.sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 25;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+.sidebar-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* ── Sidebar mobile slide ── */
+#sidebar {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (max-width: 1023px) {
+    #sidebar.sidebar-closed {
+        transform: translateX(-100%);
+    }
+    #sidebar.sidebar-open {
+        transform: translateX(0);
+    }
+}
+
+/* ── Card hover lift ── */
+.card-hover {
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.card-hover:hover {
+    transform: translateY(-4px);
+}
+
+/* ── Table row highlight ── */
+tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+/* ── Focus ring for accessibility ── */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+}
+
+/* ── Pill tab active state ── */
+.master-tab {
+    position: relative;
+    transition: all 0.2s ease;
+}
+.master-tab[aria-selected="true"]::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 20px;
+    height: 3px;
+    background: #4f46e5;
+    border-radius: 999px;
+}
+
+/* ── Pulse dot for notifications / AI ── */
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+.pulse-dot {
+    animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* ── Selection color ── */
+::selection {
+    background: #c7d2fe;
+    color: #1e1b4b;
+}
