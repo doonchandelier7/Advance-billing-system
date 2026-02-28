@@ -40,27 +40,44 @@
                 <th>#</th>
                 <th>Product / Description</th>
                 <th>HSN</th>
+                <th class="text-right">Rate</th>
                 <th class="text-right">Qty</th>
                 <th>Unit</th>
-                <th class="text-right">Rate</th>
+                <th class="text-right">Taxable (Qty×Rate)</th>
                 <th class="text-right">GST %</th>
-                <th class="text-right">Amount</th>
+                <th class="text-right">GST Amt</th>
+                <th class="text-right">Total</th>
             </tr>
         </thead>
         <tbody>
+            @php $overallTotal = 0; @endphp
             @foreach($invoice->items as $i => $item)
+            @php
+                $taxable = round($item->quantity * $item->rate, 2);
+                $gstAmt = $item->gst_percent ? round($taxable * ($item->gst_percent / 100), 2) : 0;
+                $itemTotal = $taxable + $gstAmt;
+                $overallTotal += $itemTotal;
+            @endphp
             <tr>
                 <td>{{ $i + 1 }}</td>
                 <td>{{ $item->product_name ?? '—' }}</td>
                 <td>{{ $item->hsn_code ?? '—' }}</td>
+                <td class="text-right">{{ number_format($item->rate, 2) }}</td>
                 <td class="text-right">{{ number_format($item->quantity, 3) }}</td>
                 <td>{{ $item->unit ?? '—' }}</td>
-                <td class="text-right">{{ number_format($item->rate, 2) }}</td>
+                <td class="text-right" style="font-weight:600;">{{ number_format($taxable, 2) }}</td>
                 <td class="text-right">{{ $item->gst_percent ? number_format($item->gst_percent, 1).'%' : '—' }}</td>
-                <td class="text-right">{{ number_format($item->amount, 2) }}</td>
+                <td class="text-right">{{ $gstAmt > 0 ? number_format($gstAmt, 2) : '—' }}</td>
+                <td class="text-right" style="font-weight:700;">{{ number_format($itemTotal, 2) }}</td>
             </tr>
             @endforeach
         </tbody>
+        <tfoot>
+            <tr style="background:#f5f5f5;font-weight:700;">
+                <td colspan="9" class="text-right"><strong>Overall Total:</strong></td>
+                <td class="text-right" style="font-size:1.1em;"><strong>{{ number_format($overallTotal, 2) }}</strong></td>
+            </tr>
+        </tfoot>
     </table>
     <div class="totals">
         <table>

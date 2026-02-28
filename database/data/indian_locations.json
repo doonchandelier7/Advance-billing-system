@@ -1,0 +1,194 @@
+{
+  "states": [
+    {
+      "code": "01", "name": "Jammu & Kashmir",
+      "districts": ["Anantnag","Bandipora","Baramulla","Budgam","Doda","Ganderbal","Jammu","Kathua","Kishtwar","Kulgam","Kupwara","Poonch","Pulwama","Rajouri","Ramban","Reasi","Samba","Shopian","Srinagar","Udhampur"],
+      "cities": ["Srinagar","Jammu","Anantnag","Baramulla","Sopore","Kathua","Udhampur","Poonch","Rajouri"]
+    },
+    {
+      "code": "02", "name": "Himachal Pradesh",
+      "districts": ["Bilaspur","Chamba","Hamirpur","Kangra","Kinnaur","Kullu","Lahaul & Spiti","Mandi","Shimla","Sirmaur","Solan","Una"],
+      "cities": ["Shimla","Dharamshala","Mandi","Solan","Kullu","Manali","Hamirpur","Bilaspur","Una","Palampur","Baddi","Nahan"]
+    },
+    {
+      "code": "03", "name": "Punjab",
+      "districts": ["Amritsar","Barnala","Bathinda","Faridkot","Fatehgarh Sahib","Fazilka","Firozpur","Gurdaspur","Hoshiarpur","Jalandhar","Kapurthala","Ludhiana","Malerkotla","Mansa","Moga","Mohali","Muktsar","Nawanshahr","Pathankot","Patiala","Rupnagar","Sangrur","Tarn Taran"],
+      "cities": ["Ludhiana","Amritsar","Jalandhar","Patiala","Bathinda","Mohali","Hoshiarpur","Pathankot","Moga","Batala","Abohar","Malerkotla","Khanna","Phagwara","Muktsar","Barnala","Rajpura","Firozpur","Kapurthala","Mansa","Sangrur","Fazilka","Faridkot","Gurdaspur"]
+    },
+    {
+      "code": "04", "name": "Chandigarh",
+      "districts": ["Chandigarh"],
+      "cities": ["Chandigarh"]
+    },
+    {
+      "code": "05", "name": "Uttarakhand",
+      "districts": ["Almora","Bageshwar","Chamoli","Champawat","Dehradun","Haridwar","Nainital","Pauri Garhwal","Pithoragarh","Rudraprayag","Tehri Garhwal","Udham Singh Nagar"],
+      "cities": ["Dehradun","Haridwar","Roorkee","Haldwani","Rudrapur","Kashipur","Rishikesh","Nainital","Mussoorie","Pithoragarh","Almora","Kotdwar"]
+    },
+    {
+      "code": "06", "name": "Haryana",
+      "districts": ["Ambala","Bhiwani","Charkhi Dadri","Faridabad","Fatehabad","Gurugram","Hisar","Jhajjar","Jind","Kaithal","Karnal","Kurukshetra","Mahendragarh","Nuh","Palwal","Panchkula","Panipat","Rewari","Rohtak","Sirsa","Sonipat","Yamunanagar"],
+      "cities": ["Faridabad","Gurugram","Panipat","Ambala","Yamunanagar","Rohtak","Hisar","Karnal","Sonipat","Panchkula","Bhiwani","Sirsa","Jind","Thanesar","Kaithal","Palwal","Rewari","Bahadurgarh","Jhajjar"]
+    },
+    {
+      "code": "07", "name": "Delhi",
+      "districts": ["Central Delhi","East Delhi","New Delhi","North Delhi","North East Delhi","North West Delhi","Shahdara","South Delhi","South East Delhi","South West Delhi","West Delhi"],
+      "cities": ["New Delhi","Delhi"]
+    },
+    {
+      "code": "08", "name": "Rajasthan",
+      "districts": ["Ajmer","Alwar","Banswara","Baran","Barmer","Bharatpur","Bhilwara","Bikaner","Bundi","Chittorgarh","Churu","Dausa","Dholpur","Dungarpur","Hanumangarh","Jaipur","Jaisalmer","Jalore","Jhalawar","Jhunjhunu","Jodhpur","Karauli","Kota","Nagaur","Pali","Pratapgarh","Rajsamand","Sawai Madhopur","Sikar","Sirohi","Sri Ganganagar","Tonk","Udaipur"],
+      "cities": ["Jaipur","Jodhpur","Kota","Bikaner","Ajmer","Udaipur","Bhilwara","Alwar","Bharatpur","Sri Ganganagar","Sikar","Pali","Tonk","Kishangarh","Beawar","Hanumangarh","Dhaulpur","Gangapur City","Sawai Madhopur","Churu","Jhunjhunu","Barmer","Nagaur","Chittorgarh","Bundi"]
+    },
+    {
+      "code": "09", "name": "Uttar Pradesh",
+      "districts": ["Agra","Aligarh","Ambedkar Nagar","Amethi","Amroha","Auraiya","Ayodhya","Azamgarh","Baghpat","Bahraich","Ballia","Balrampur","Banda","Barabanki","Bareilly","Basti","Bhadohi","Bijnor","Budaun","Bulandshahr","Chandauli","Chitrakoot","Deoria","Etah","Etawah","Farrukhabad","Fatehpur","Firozabad","Gautam Buddh Nagar","Ghaziabad","Ghazipur","Gonda","Gorakhpur","Hamirpur","Hapur","Hardoi","Hathras","Jalaun","Jaunpur","Jhansi","Kannauj","Kanpur Dehat","Kanpur Nagar","Kasganj","Kaushambi","Kheri","Kushinagar","Lalitpur","Lucknow","Maharajganj","Mahoba","Mainpuri","Mathura","Mau","Meerut","Mirzapur","Moradabad","Muzaffarnagar","Pilibhit","Pratapgarh","Prayagraj","Rae Bareli","Rampur","Saharanpur","Sambhal","Sant Kabir Nagar","Shahjahanpur","Shamli","Shravasti","Siddharthnagar","Sitapur","Sonbhadra","Sultanpur","Unnao","Varanasi"],
+      "cities": ["Lucknow","Kanpur","Ghaziabad","Agra","Meerut","Varanasi","Prayagraj","Bareilly","Aligarh","Moradabad","Saharanpur","Gorakhpur","Noida","Firozabad","Jhansi","Muzaffarnagar","Mathura","Ayodhya","Budaun","Rampur","Shahjahanpur","Farrukhabad","Mau","Hapur","Etawah","Mirzapur","Bulandshahr","Sambhal","Amroha","Hardoi","Fatehpur","Raebareli","Orai","Sitapur","Bahraich","Basti","Deoria","Unnao","Sultanpur","Azamgarh","Jaunpur","Banda","Ballia","Gonda","Lakhimpur Kheri"]
+    },
+    {
+      "code": "10", "name": "Bihar",
+      "districts": ["Araria","Arwal","Aurangabad","Banka","Begusarai","Bhagalpur","Bhojpur","Buxar","Darbhanga","East Champaran","Gaya","Gopalganj","Jamui","Jehanabad","Kaimur","Katihar","Khagaria","Kishanganj","Lakhisarai","Madhepura","Madhubani","Munger","Muzaffarpur","Nalanda","Nawada","Patna","Purnia","Rohtas","Saharsa","Samastipur","Saran","Sheikhpura","Sheohar","Sitamarhi","Siwan","Supaul","Vaishali","West Champaran"],
+      "cities": ["Patna","Gaya","Bhagalpur","Muzaffarpur","Purnia","Darbhanga","Bihar Sharif","Arrah","Begusarai","Katihar","Munger","Chhapra","Samastipur","Hajipur","Sasaram","Dehri","Siwan","Motihari","Nawada","Bettiah","Saharsa","Buxar"]
+    },
+    {
+      "code": "11", "name": "Sikkim",
+      "districts": ["East Sikkim","North Sikkim","South Sikkim","West Sikkim","Pakyong","Soreng"],
+      "cities": ["Gangtok","Namchi","Gyalshing","Mangan","Singtam","Rangpo"]
+    },
+    {
+      "code": "12", "name": "Arunachal Pradesh",
+      "districts": ["Anjaw","Changlang","Dibang Valley","East Kameng","East Siang","Kamle","Kra Daadi","Kurung Kumey","Lepa Rada","Lohit","Longding","Lower Dibang Valley","Lower Siang","Lower Subansiri","Namsai","Pakke Kessang","Papum Pare","Shi Yomi","Siang","Tawang","Tirap","Upper Siang","Upper Subansiri","West Kameng","West Siang"],
+      "cities": ["Itanagar","Naharlagun","Pasighat","Tawang","Ziro","Bomdila","Along","Tezu","Namsai","Changlang"]
+    },
+    {
+      "code": "13", "name": "Nagaland",
+      "districts": ["Chumoukedima","Dimapur","Kiphire","Kohima","Longleng","Mokokchung","Mon","Niuland","Noklak","Peren","Phek","Shamator","Tseminyu","Tuensang","Wokha","Zunheboto"],
+      "cities": ["Dimapur","Kohima","Mokokchung","Tuensang","Wokha","Zunheboto","Mon"]
+    },
+    {
+      "code": "14", "name": "Manipur",
+      "districts": ["Bishnupur","Chandel","Churachandpur","Imphal East","Imphal West","Jiribam","Kakching","Kamjong","Kangpokpi","Noney","Pherzawl","Senapati","Tamenglong","Tengnoupal","Thoubal","Ukhrul"],
+      "cities": ["Imphal","Thoubal","Bishnupur","Churachandpur","Kakching"]
+    },
+    {
+      "code": "15", "name": "Mizoram",
+      "districts": ["Aizawl","Champhai","Hnahthial","Khawzawl","Kolasib","Lawngtlai","Lunglei","Mamit","Saiha","Saitual","Serchhip"],
+      "cities": ["Aizawl","Lunglei","Champhai","Serchhip","Kolasib","Saiha"]
+    },
+    {
+      "code": "16", "name": "Tripura",
+      "districts": ["Dhalai","Gomati","Khowai","North Tripura","Sepahijala","South Tripura","Unakoti","West Tripura"],
+      "cities": ["Agartala","Udaipur","Dharmanagar","Kailashahar","Belonia","Ambassa","Khowai"]
+    },
+    {
+      "code": "17", "name": "Meghalaya",
+      "districts": ["East Garo Hills","East Jaintia Hills","East Khasi Hills","North Garo Hills","Ri Bhoi","South Garo Hills","South West Garo Hills","South West Khasi Hills","West Garo Hills","West Jaintia Hills","West Khasi Hills"],
+      "cities": ["Shillong","Tura","Jowai","Nongstoin","Williamnagar","Baghmara","Resubelpara"]
+    },
+    {
+      "code": "18", "name": "Assam",
+      "districts": ["Baksa","Barpeta","Biswanath","Bongaigaon","Cachar","Charaideo","Chirang","Darrang","Dhemaji","Dhubri","Dibrugarh","Dima Hasao","Goalpara","Golaghat","Hailakandi","Hojai","Jorhat","Kamrup","Kamrup Metropolitan","Karbi Anglong","Karimganj","Kokrajhar","Lakhimpur","Majuli","Morigaon","Nagaon","Nalbari","Sivasagar","Sonitpur","South Salmara-Mankachar","Tinsukia","Udalguri","West Karbi Anglong"],
+      "cities": ["Guwahati","Silchar","Dibrugarh","Jorhat","Nagaon","Tinsukia","Tezpur","Bongaigaon","Karimganj","North Lakhimpur","Dhubri","Diphu","Goalpara","Sivasagar","Golaghat","Nalbari","Barpeta","Mangaldoi","Hailakandi"]
+    },
+    {
+      "code": "19", "name": "West Bengal",
+      "districts": ["Alipurduar","Bankura","Birbhum","Cooch Behar","Dakshin Dinajpur","Darjeeling","Hooghly","Howrah","Jalpaiguri","Jhargram","Kalimpong","Kolkata","Malda","Murshidabad","Nadia","North 24 Parganas","Paschim Bardhaman","Paschim Medinipur","Purba Bardhaman","Purba Medinipur","Purulia","South 24 Parganas","Uttar Dinajpur"],
+      "cities": ["Kolkata","Howrah","Durgapur","Asansol","Siliguri","Bardhaman","Malda","Baharampur","Habra","Kharagpur","Shantipur","Dankuni","Dhulian","Ranaghat","Haldia","Raiganj","Krishnanagar","Nabadwip","Medinipur","Bankura","Jalpaiguri","Balurghat","Basirhat","Cooch Behar","Darjeeling","Purulia","Jangipur","Barrackpore","English Bazar"]
+    },
+    {
+      "code": "20", "name": "Jharkhand",
+      "districts": ["Bokaro","Chatra","Deoghar","Dhanbad","Dumka","East Singhbhum","Garhwa","Giridih","Godda","Gumla","Hazaribagh","Jamtara","Khunti","Koderma","Latehar","Lohardaga","Pakur","Palamu","Ramgarh","Ranchi","Sahebganj","Seraikela Kharsawan","Simdega","West Singhbhum"],
+      "cities": ["Ranchi","Jamshedpur","Dhanbad","Bokaro","Deoghar","Hazaribagh","Giridih","Ramgarh","Phusro","Medininagar","Dumka","Chatra","Gumla","Chaibasa"]
+    },
+    {
+      "code": "21", "name": "Odisha",
+      "districts": ["Angul","Balangir","Balasore","Bargarh","Bhadrak","Boudh","Cuttack","Deogarh","Dhenkanal","Gajapati","Ganjam","Jagatsinghpur","Jajpur","Jharsuguda","Kalahandi","Kandhamal","Kendrapara","Kendujhar","Khordha","Koraput","Malkangiri","Mayurbhanj","Nabarangpur","Nayagarh","Nuapada","Puri","Rayagada","Sambalpur","Subarnapur","Sundargarh"],
+      "cities": ["Bhubaneswar","Cuttack","Rourkela","Berhampur","Sambalpur","Puri","Balasore","Bhadrak","Baripada","Jharsuguda","Bargarh","Angul","Jajpur","Koraput","Jeypore","Kendujhar","Dhenkanal","Jagatsinghpur","Paradip"]
+    },
+    {
+      "code": "22", "name": "Chhattisgarh",
+      "districts": ["Balod","Baloda Bazar","Balrampur","Bastar","Bemetara","Bijapur","Bilaspur","Dantewada","Dhamtari","Durg","Gariaband","Gaurela-Pendra-Marwahi","Janjgir-Champa","Jashpur","Kabirdham","Kanker","Kondagaon","Korba","Koriya","Mahasamund","Mungeli","Narayanpur","Raigarh","Raipur","Rajnandgaon","Sukma","Surajpur","Surguja"],
+      "cities": ["Raipur","Bhilai","Bilaspur","Korba","Durg","Rajnandgaon","Raigarh","Jagdalpur","Ambikapur","Dhamtari","Mahasamund","Chirmiri","Dalli-Rajhara","Janjgir","Kanker"]
+    },
+    {
+      "code": "23", "name": "Madhya Pradesh",
+      "districts": ["Agar Malwa","Alirajpur","Anuppur","Ashoknagar","Balaghat","Barwani","Betul","Bhind","Bhopal","Burhanpur","Chhatarpur","Chhindwara","Damoh","Datia","Dewas","Dhar","Dindori","Guna","Gwalior","Harda","Hoshangabad","Indore","Jabalpur","Jhabua","Katni","Khandwa","Khargone","Mandla","Mandsaur","Morena","Narsinghpur","Neemuch","Niwari","Panna","Raisen","Rajgarh","Ratlam","Rewa","Sagar","Satna","Sehore","Seoni","Shahdol","Shajapur","Sheopur","Shivpuri","Sidhi","Singrauli","Tikamgarh","Ujjain","Umaria","Vidisha"],
+      "cities": ["Indore","Bhopal","Jabalpur","Gwalior","Ujjain","Sagar","Dewas","Satna","Ratlam","Rewa","Murwara","Singrauli","Burhanpur","Khandwa","Bhind","Chhindwara","Guna","Shivpuri","Vidisha","Chhatarpur","Damoh","Mandsaur","Khargone","Neemuch","Pithampur","Hoshangabad","Itarsi","Sehore","Betul","Seoni","Datia","Nagda"]
+    },
+    {
+      "code": "24", "name": "Gujarat",
+      "districts": ["Ahmedabad","Amreli","Anand","Aravalli","Banaskantha","Bharuch","Bhavnagar","Botad","Chhota Udaipur","Dahod","Dang","Devbhoomi Dwarka","Gandhinagar","Gir Somnath","Jamnagar","Junagadh","Kutch","Kheda","Mahisagar","Mehsana","Morbi","Narmada","Navsari","Panchmahal","Patan","Porbandar","Rajkot","Sabarkantha","Surat","Surendranagar","Tapi","Vadodara","Valsad"],
+      "cities": ["Ahmedabad","Surat","Vadodara","Rajkot","Bhavnagar","Jamnagar","Junagadh","Gandhinagar","Gandhidham","Anand","Navsari","Morbi","Nadiad","Surendranagar","Bharuch","Mehsana","Bhuj","Porbandar","Palanpur","Valsad","Vapi","Gondal","Veraval","Godhra","Patan","Botad","Dahod","Amreli","Deesa"]
+    },
+    {
+      "code": "25", "name": "Daman & Diu",
+      "districts": ["Daman","Diu"],
+      "cities": ["Daman","Diu"]
+    },
+    {
+      "code": "26", "name": "Dadra & Nagar Haveli",
+      "districts": ["Dadra & Nagar Haveli"],
+      "cities": ["Silvassa"]
+    },
+    {
+      "code": "27", "name": "Maharashtra",
+      "districts": ["Ahmednagar","Akola","Amravati","Aurangabad","Beed","Bhandara","Buldhana","Chandrapur","Dhule","Gadchiroli","Gondia","Hingoli","Jalgaon","Jalna","Kolhapur","Latur","Mumbai City","Mumbai Suburban","Nagpur","Nanded","Nandurbar","Nashik","Osmanabad","Palghar","Parbhani","Pune","Raigad","Ratnagiri","Sangli","Satara","Sindhudurg","Solapur","Thane","Wardha","Washim","Yavatmal"],
+      "cities": ["Mumbai","Pune","Nagpur","Thane","Nashik","Aurangabad","Solapur","Kolhapur","Amravati","Navi Mumbai","Sangli","Malegaon","Jalgaon","Akola","Latur","Dhule","Ahmednagar","Chandrapur","Parbhani","Jalna","Ichalkaranji","Bhiwandi","Panvel","Satara","Beed","Yavatmal","Kamptee","Gondiya","Barshi","Achalpur","Osmanabad","Nandurbar","Wardha","Ratnagiri","Sindhudurg"]
+    },
+    {
+      "code": "28", "name": "Andhra Pradesh",
+      "districts": ["Anantapur","Chittoor","East Godavari","Guntur","Krishna","Kurnool","Nellore","Prakasam","Srikakulam","Visakhapatnam","Vizianagaram","West Godavari","YSR Kadapa","Alluri Sitharama Raju","Anakapalli","Annamayya","Bapatla","Eluru","Kakinada","Konaseema","Nandyal","NTR","Palnadu","Parvathipuram Manyam","Sri Sathya Sai","Tirupati"],
+      "cities": ["Visakhapatnam","Vijayawada","Guntur","Nellore","Kurnool","Rajahmundry","Kadapa","Kakinada","Tirupati","Anantapur","Eluru","Ongole","Vizianagaram","Tenali","Proddatur","Nandyal","Chittoor","Srikakulam","Machilipatnam","Hindupur","Bhimavaram","Madanapalle","Guntakal","Dharmavaram","Gudivada","Narasaraopet","Tadipatri"]
+    },
+    {
+      "code": "29", "name": "Karnataka",
+      "districts": ["Bagalkot","Ballari","Belagavi","Bengaluru Rural","Bengaluru Urban","Bidar","Chamarajanagar","Chikkaballapur","Chikkamagaluru","Chitradurga","Dakshina Kannada","Davanagere","Dharwad","Gadag","Hassan","Haveri","Kalaburagi","Kodagu","Kolar","Koppal","Mandya","Mysuru","Raichur","Ramanagara","Tumakuru","Udupi","Uttara Kannada","Vijayapura","Yadgir"],
+      "cities": ["Bengaluru","Mysuru","Hubli-Dharwad","Mangaluru","Belagavi","Davanagere","Ballari","Kalaburagi","Tumakuru","Bidar","Raichur","Shimoga","Hassan","Mandya","Udupi","Chitradurga","Hospet","Gadag","Robertsonpet","Bhadravati","Chikkamagaluru","Gangavathi","Bagalkot","Ranebennur","Gokak","Kolar","Yadgir"]
+    },
+    {
+      "code": "30", "name": "Goa",
+      "districts": ["North Goa","South Goa"],
+      "cities": ["Panaji","Margao","Vasco da Gama","Mapusa","Ponda","Bicholim","Curchorem","Sanquelim","Cuncolim","Quepem"]
+    },
+    {
+      "code": "31", "name": "Lakshadweep",
+      "districts": ["Lakshadweep"],
+      "cities": ["Kavaratti","Agatti","Minicoy","Amini","Andrott"]
+    },
+    {
+      "code": "32", "name": "Kerala",
+      "districts": ["Alappuzha","Ernakulam","Idukki","Kannur","Kasaragod","Kollam","Kottayam","Kozhikode","Malappuram","Palakkad","Pathanamthitta","Thiruvananthapuram","Thrissur","Wayanad"],
+      "cities": ["Thiruvananthapuram","Kochi","Kozhikode","Thrissur","Kollam","Palakkad","Alappuzha","Kannur","Malappuram","Thalassery","Kasaragod","Kottayam","Manjeri","Vatakara","Koyilandy","Neyyattinkara","Kayamkulam","Ponnani","Chalakudy","Changanassery","Punalur","Nilambur","Cherthala","Perinthalmanna","Mattannur","Shoranur"]
+    },
+    {
+      "code": "33", "name": "Tamil Nadu",
+      "districts": ["Ariyalur","Chengalpattu","Chennai","Coimbatore","Cuddalore","Dharmapuri","Dindigul","Erode","Kallakurichi","Kanchipuram","Kanyakumari","Karur","Krishnagiri","Madurai","Mayiladuthurai","Nagapattinam","Namakkal","Nilgiris","Perambalur","Pudukkottai","Ramanathapuram","Ranipet","Salem","Sivaganga","Tenkasi","Thanjavur","Theni","Thoothukudi","Tiruchirappalli","Tirunelveli","Tirupattur","Tiruppur","Tiruvallur","Tiruvannamalai","Tiruvarur","Vellore","Viluppuram","Virudhunagar"],
+      "cities": ["Chennai","Coimbatore","Madurai","Tiruchirappalli","Salem","Tirunelveli","Tiruppur","Erode","Vellore","Thoothukudi","Dindigul","Thanjavur","Ranipet","Sivakasi","Karur","Udhagamandalam","Hosur","Nagercoil","Kanchipuram","Kumbakonam","Rajapalayam","Pudukkottai","Ambur","Tiruvannamalai","Pollachi","Cuddalore","Neyveli","Nagapattinam","Villupuram"]
+    },
+    {
+      "code": "34", "name": "Puducherry",
+      "districts": ["Karaikal","Mahe","Puducherry","Yanam"],
+      "cities": ["Puducherry","Karaikal","Yanam","Mahe"]
+    },
+    {
+      "code": "35", "name": "Andaman & Nicobar Islands",
+      "districts": ["Nicobar","North & Middle Andaman","South Andaman"],
+      "cities": ["Port Blair","Diglipur","Rangat","Mayabunder","Car Nicobar"]
+    },
+    {
+      "code": "36", "name": "Telangana",
+      "districts": ["Adilabad","Bhadradri Kothagudem","Hyderabad","Jagtial","Jangaon","Jayashankar Bhupalpally","Jogulamba Gadwal","Kamareddy","Karimnagar","Khammam","Kumuram Bheem Asifabad","Mahabubabad","Mahabubnagar","Mancherial","Medak","Medchal-Malkajgiri","Mulugu","Nagarkurnool","Nalgonda","Narayanpet","Nirmal","Nizamabad","Peddapalli","Rajanna Sircilla","Ranga Reddy","Sangareddy","Siddipet","Suryapet","Vikarabad","Wanaparthy","Warangal Rural","Warangal Urban","Yadadri Bhuvanagiri"],
+      "cities": ["Hyderabad","Warangal","Nizamabad","Karimnagar","Ramagundam","Khammam","Mahbubnagar","Nalgonda","Adilabad","Suryapet","Miryalaguda","Siddipet","Jagtial","Mancherial","Kamareddy","Nirmal","Bhongir","Medak","Sangareddy"]
+    },
+    {
+      "code": "37", "name": "Andhra Pradesh (New)",
+      "districts": [],
+      "cities": []
+    },
+    {
+      "code": "38", "name": "Ladakh",
+      "districts": ["Kargil","Leh"],
+      "cities": ["Leh","Kargil"]
+    }
+  ]
+}

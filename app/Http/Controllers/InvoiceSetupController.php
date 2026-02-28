@@ -7,9 +7,11 @@ use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\InvoiceTemplate;
 use App\Models\Product;
+use App\Models\Vendor;
 use App\Services\InvoiceNumberService;
 use App\Services\InvoiceTemplateBindingService;
 use App\Services\StockService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -111,10 +113,70 @@ class InvoiceSetupController extends Controller
     public function create(): View
     {
         $customers = Customer::where('is_active', true)->orderBy('name')->get();
+        $vendors = Vendor::where('is_active', true)->orderBy('name')->get();
         $products = Product::with('unit')->where('is_active', true)->orderBy('name')->get();
         $templates = InvoiceTemplate::where('is_active', true)->orderBy('type')->orderBy('name')->get();
         $types = InvoiceTemplate::types();
-        return view('invoices.create', compact('customers', 'products', 'templates', 'types'));
+        return view('invoices.create', compact('customers', 'vendors', 'products', 'templates', 'types'));
+    }
+
+    /**
+     * Search customers and vendors by name for invoice auto-fill.
+     */
+    public function searchParty(Request $request): JsonResponse
+    {
+        $q = $request->query('q', '');
+        if (strlen($q) < 1) {
+            return response()->json([]);
+        }
+
+        $customers = Customer::where('is_active', true)
+            ->where('name', 'like', "%{$q}%")
+            ->limit(10)
+            ->get()
+            ->map(fn ($c) => [
+                'id'              => $c->id,
+                'type'            => 'customer',
+                'name'            => $c->name,
+                'contact_person'  => $c->contact_person,
+                'phone'           => $c->phone,
+                'email'           => $c->email,
+                'address'         => $c->address,
+                'city'            => $c->city,
+                'district'        => $c->district,
+                'state'           => $c->state,
+                'gstin'           => $c->gstin,
+                'pan'             => $c->pan,
+                'bank_name'       => $c->bank_name,
+                'bank_account_no' => $c->bank_account_no,
+                'bank_branch'     => $c->bank_branch,
+                'bank_ifsc'       => $c->bank_ifsc,
+            ]);
+
+        $vendors = Vendor::where('is_active', true)
+            ->where('name', 'like', "%{$q}%")
+            ->limit(10)
+            ->get()
+            ->map(fn ($v) => [
+                'id'              => $v->id,
+                'type'            => 'vendor',
+                'name'            => $v->name,
+                'contact_person'  => $v->contact_person,
+                'phone'           => $v->phone,
+                'email'           => $v->email,
+                'address'         => $v->address,
+                'city'            => $v->city,
+                'district'        => $v->district,
+                'state'           => $v->state,
+                'gstin'           => $v->gstin,
+                'pan'             => $v->pan,
+                'bank_name'       => $v->bank_name,
+                'bank_account_no' => $v->bank_account_no,
+                'bank_branch'     => $v->bank_branch,
+                'bank_ifsc'       => $v->bank_ifsc,
+            ]);
+
+        return response()->json($customers->concat($vendors)->values());
     }
 
     /**
@@ -130,8 +192,13 @@ class InvoiceSetupController extends Controller
             'payment_mode' => 'nullable|string|max:32',
             'party_name' => 'nullable|string|max:191',
             'city' => 'nullable|string|max:191',
+            'district' => 'nullable|string|max:191',
             'state' => 'nullable|string|max:191',
             'gstin' => 'nullable|string|max:64',
+            'buyer_bank_name' => 'nullable|string|max:191',
+            'buyer_bank_account_no' => 'nullable|string|max:64',
+            'buyer_bank_branch' => 'nullable|string|max:191',
+            'buyer_bank_ifsc' => 'nullable|string|max:32',
             'gr_number' => 'nullable|string|max:64',
             'gr_date' => 'nullable|date',
             'transport_name' => 'nullable|string|max:191',
@@ -164,8 +231,13 @@ class InvoiceSetupController extends Controller
                     'payment_mode' => $validated['payment_mode'] ?? 'CASH',
                     'party_name' => $validated['party_name'] ?? $customer?->name,
                     'city' => $validated['city'] ?? $customer?->city,
+                    'district' => $validated['district'] ?? $customer?->district,
                     'state' => $validated['state'] ?? $customer?->state,
                     'gstin' => $validated['gstin'] ?? $customer?->gstin,
+                    'buyer_bank_name' => $validated['buyer_bank_name'] ?? $customer?->bank_name,
+                    'buyer_bank_account_no' => $validated['buyer_bank_account_no'] ?? $customer?->bank_account_no,
+                    'buyer_bank_branch' => $validated['buyer_bank_branch'] ?? $customer?->bank_branch,
+                    'buyer_bank_ifsc' => $validated['buyer_bank_ifsc'] ?? $customer?->bank_ifsc,
                     'gr_number' => $validated['gr_number'] ?? null,
                     'gr_date' => $validated['gr_date'] ?? null,
                     'transport_name' => $validated['transport_name'] ?? null,

@@ -26,6 +26,9 @@ class ProductController extends Controller
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->input('category_id'));
         }
+        if ($request->filled('hsn_code')) {
+            $query->where('hsn_code', preg_replace('/\D+/', '', (string) $request->input('hsn_code')));
+        }
         if ($request->boolean('low_stock')) {
             $query->lowStock();
         }
@@ -40,7 +43,7 @@ class ProductController extends Controller
             'unit_id' => 'nullable|exists:units,id',
             'name' => 'required|string|max:191',
             'code' => 'nullable|string|max:64|unique:products,code',
-            'hsn_code' => 'nullable|string|max:32',
+            'hsn_code' => ['nullable', 'string', 'max:32', 'regex:/^\d{4}(\d{2}(\d{2})?)?$/'],
             'description' => 'nullable|string',
             'purchase_rate' => 'nullable|numeric|min:0',
             'sale_rate' => 'nullable|numeric|min:0',
@@ -49,6 +52,7 @@ class ProductController extends Controller
             'low_stock_threshold' => 'nullable|numeric|min:0',
             'is_active' => 'boolean',
         ]);
+        $validated['hsn_code'] = isset($validated['hsn_code']) ? preg_replace('/\D+/', '', $validated['hsn_code']) : null;
         $product = Product::create($validated);
         $product->load(['category', 'unit']);
         return response()->json($product, 201);
@@ -67,7 +71,7 @@ class ProductController extends Controller
             'unit_id' => 'nullable|exists:units,id',
             'name' => 'sometimes|string|max:191',
             'code' => 'nullable|string|max:64|unique:products,code,'.$product->id,
-            'hsn_code' => 'nullable|string|max:32',
+            'hsn_code' => ['nullable', 'string', 'max:32', 'regex:/^\d{4}(\d{2}(\d{2})?)?$/'],
             'description' => 'nullable|string',
             'purchase_rate' => 'nullable|numeric|min:0',
             'sale_rate' => 'nullable|numeric|min:0',
@@ -76,6 +80,9 @@ class ProductController extends Controller
             'low_stock_threshold' => 'nullable|numeric|min:0',
             'is_active' => 'boolean',
         ]);
+        if (array_key_exists('hsn_code', $validated)) {
+            $validated['hsn_code'] = preg_replace('/\D+/', '', (string) $validated['hsn_code']);
+        }
         $product->update($validated);
         $product->load(['category', 'unit']);
         return response()->json($product);

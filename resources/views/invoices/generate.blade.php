@@ -159,26 +159,128 @@
             </div>
         </div>
 
+        <div class="card mb-3">
+            <div class="card-header" style="padding:12px 16px;">
+                <h6 class="mb-0" style="font-weight:700;"><i class="fas fa-layer-group mr-2" style="color:#667eea;"></i>Tax Slab Totals</h6>
+            </div>
+            <div class="card-body" style="padding:0;">
+                @php
+                    $taxSlabs = [];
+                    foreach ($invoice->items as $item) {
+                        $qty = (float) $item->quantity;
+                        $rate = (float) $item->rate;
+                        $gstPct = (float) ($item->gst_percent ?? 0);
+                        $taxable = round($qty * $rate, 2);
+                        $gstAmt = $gstPct ? round($taxable * ($gstPct / 100), 2) : 0;
+                        $slabKey = rtrim(rtrim(number_format($gstPct, 2, '.', ''), '0'), '.');
+                        if ($slabKey === '') { $slabKey = '0'; }
+                        if (!isset($taxSlabs[$slabKey])) {
+                            $taxSlabs[$slabKey] = ['taxable' => 0, 'cgst' => 0, 'sgst' => 0, 'igst' => 0];
+                        }
+                        $half = round($gstAmt / 2, 2);
+                        $taxSlabs[$slabKey]['taxable'] += $taxable;
+                        $taxSlabs[$slabKey]['cgst'] += $half;
+                        $taxSlabs[$slabKey]['sgst'] += $half;
+                    }
+                    foreach (['0','5','12','18','28'] as $stdSlab) {
+                        if (!isset($taxSlabs[$stdSlab])) {
+                            $taxSlabs[$stdSlab] = ['taxable' => 0, 'cgst' => 0, 'sgst' => 0, 'igst' => 0];
+                        }
+                    }
+                    uksort($taxSlabs, fn($a, $b) => (float)$a <=> (float)$b);
+                @endphp
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0" style="font-size:0.78rem;">
+                        <thead>
+                        <tr>
+                            <th>GST%</th>
+                            <th class="text-right">Taxable</th>
+                            <th class="text-right">CGST</th>
+                            <th class="text-right">SGST</th>
+                            <th class="text-right">IGST</th>
+                            <th class="text-right">Tax Total</th>
+                            <th class="text-right">Gross</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @php $gTaxable=0; $gCgst=0; $gSgst=0; $gIgst=0; $gTax=0; $gGross=0; @endphp
+                        @foreach($taxSlabs as $slab => $row)
+                            @php
+                                $taxTotal = $row['cgst'] + $row['sgst'] + $row['igst'];
+                                $gross = $row['taxable'] + $taxTotal;
+                                $gTaxable += $row['taxable']; $gCgst += $row['cgst']; $gSgst += $row['sgst']; $gIgst += $row['igst']; $gTax += $taxTotal; $gGross += $gross;
+                            @endphp
+                            <tr>
+                                <td><strong>{{ $slab }}%</strong></td>
+                                <td class="text-right">{{ number_format($row['taxable'], 2) }}</td>
+                                <td class="text-right">{{ number_format($row['cgst'], 2) }}</td>
+                                <td class="text-right">{{ number_format($row['sgst'], 2) }}</td>
+                                <td class="text-right">{{ number_format($row['igst'], 2) }}</td>
+                                <td class="text-right" style="font-weight:600;">{{ number_format($taxTotal, 2) }}</td>
+                                <td class="text-right" style="font-weight:600;">{{ number_format($gross, 2) }}</td>
+                            </tr>
+                        @endforeach
+                        </tbody>
+                        <tfoot>
+                        <tr style="background:rgba(102,126,234,0.1);font-weight:700;">
+                            <td>Grand</td>
+                            <td class="text-right">{{ number_format($gTaxable, 2) }}</td>
+                            <td class="text-right">{{ number_format($gCgst, 2) }}</td>
+                            <td class="text-right">{{ number_format($gSgst, 2) }}</td>
+                            <td class="text-right">{{ number_format($gIgst, 2) }}</td>
+                            <td class="text-right">{{ number_format($gTax, 2) }}</td>
+                            <td class="text-right">{{ number_format($gGross, 2) }}</td>
+                        </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         {{-- Line Items --}}
         <div class="card">
             <div class="card-header" style="padding:12px 16px;">
-                <h6 class="mb-0" style="font-weight:700;"><i class="fas fa-list mr-2" style="color:#a29bfe;"></i>Line Items</h6>
+                <h6 class="mb-0" style="font-weight:700;"><i class="fas fa-list mr-2" style="color:#a29bfe;"></i>Line Items (Qty × Rate = Item Total)</h6>
             </div>
             <div class="card-body" style="padding:0;">
                 <table class="table table-hover mb-0" style="font-size:0.8rem;">
                     <thead>
-                        <tr><th>#</th><th>Product</th><th class="text-right">Qty</th><th class="text-right">Amount</th></tr>
+                        <tr>
+                            <th>#</th>
+                            <th>Product</th>
+                            <th class="text-right">Rate</th>
+                            <th class="text-right">Qty</th>
+                            <th class="text-right">Taxable</th>
+                            <th class="text-right">GST</th>
+                            <th class="text-right">Total</th>
+                        </tr>
                     </thead>
                     <tbody>
+                        @php $overallTotal = 0; @endphp
                         @foreach($invoice->items as $i => $item)
+                        @php
+                            $taxable = round($item->quantity * $item->rate, 2);
+                            $gstAmt = $item->gst_percent ? round($taxable * ($item->gst_percent / 100), 2) : 0;
+                            $itemTotal = $taxable + $gstAmt;
+                            $overallTotal += $itemTotal;
+                        @endphp
                         <tr>
                             <td>{{ $i+1 }}</td>
                             <td>{{ $item->product_name ?? '-' }}</td>
+                            <td class="text-right">{{ number_format($item->rate, 2) }}</td>
                             <td class="text-right">{{ number_format($item->quantity, 3) }}</td>
-                            <td class="text-right" style="font-weight:600;">{{ number_format($item->amount, 2) }}</td>
+                            <td class="text-right" style="color:#667eea;font-weight:600;">{{ number_format($taxable, 2) }}</td>
+                            <td class="text-right">{{ $gstAmt > 0 ? number_format($gstAmt, 2) : '-' }}</td>
+                            <td class="text-right" style="font-weight:700;">{{ number_format($itemTotal, 2) }}</td>
                         </tr>
                         @endforeach
                     </tbody>
+                    <tfoot>
+                        <tr style="background:rgba(0,184,148,0.08);font-weight:700;">
+                            <td colspan="6" class="text-right" style="font-weight:700;">Overall Total:</td>
+                            <td class="text-right" style="font-weight:700;color:#00b894;font-size:0.95rem;">{{ number_format($overallTotal, 2) }}</td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         </div>

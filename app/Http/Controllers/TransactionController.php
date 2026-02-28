@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\InvoiceTemplate;
 use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
@@ -13,12 +14,14 @@ use App\Models\PurchaseReturnItem;
 use App\Models\SalesReturn;
 use App\Models\SalesReturnItem;
 use App\Services\InvoiceNumberService;
+use App\Services\InvoiceTemplateBindingService;
 use App\Services\PurchaseNumberService;
 use App\Services\ReturnNumberService;
 use App\Services\StockService;
 use App\Models\Vendor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -29,6 +32,7 @@ class TransactionController extends Controller
         protected PurchaseNumberService $purchaseNumber,
         protected ReturnNumberService $returnNumber,
         protected StockService $stock,
+        protected InvoiceTemplateBindingService $binding,
     ) {}
 
     /**
@@ -72,6 +76,144 @@ class TransactionController extends Controller
     }
 
     /**
+     * Generate / preview purchase with selected template.
+     */
+    public function generatePurchase(Request $request, Purchase $purchase): View
+    {
+        if ($purchase->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $purchase->load(['vendor', 'items.product']);
+        $document = $this->buildDocumentFromPurchase($purchase);
+        $templates = InvoiceTemplate::where('is_active', true)->orderBy('type')->orderBy('name')->get();
+        $templateId = $request->query('template', $templates->where('is_default', true)->first()?->id ?? $templates->first()?->id);
+        $template = $templates->firstWhere('id', (int) $templateId);
+        $renderedHtml = $template ? $this->binding->bind($document, $template) : null;
+
+        return view('modules.transactions.generate-document', [
+            'document' => $document,
+            'record' => $purchase,
+            'templates' => $templates,
+            'template' => $template,
+            'renderedHtml' => $renderedHtml,
+            'documentLabel' => 'Purchase',
+            'generateRouteName' => 'modules.transactions.purchases.generate',
+            'printRouteName' => 'modules.transactions.purchases.print',
+            'backTab' => 'purchases',
+        ]);
+    }
+
+    /**
+     * Print-ready purchase view.
+     */
+    public function printPurchase(Request $request, Purchase $purchase): View
+    {
+        if ($purchase->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $purchase->load(['vendor', 'items.product']);
+        $document = $this->buildDocumentFromPurchase($purchase);
+        $template = InvoiceTemplate::find($request->query('template'));
+        $renderedHtml = $template ? $this->binding->bind($document, $template) : null;
+
+        return view('invoices.print', ['invoice' => $document, 'template' => $template, 'renderedHtml' => $renderedHtml]);
+    }
+
+    /**
+     * Generate / preview purchase return with selected template.
+     */
+    public function generatePurchaseReturn(Request $request, PurchaseReturn $purchaseReturn): View
+    {
+        if ($purchaseReturn->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $purchaseReturn->load(['vendor', 'items.product']);
+        $document = $this->buildDocumentFromPurchaseReturn($purchaseReturn);
+        $templates = InvoiceTemplate::where('is_active', true)->orderBy('type')->orderBy('name')->get();
+        $templateId = $request->query('template', $templates->where('is_default', true)->first()?->id ?? $templates->first()?->id);
+        $template = $templates->firstWhere('id', (int) $templateId);
+        $renderedHtml = $template ? $this->binding->bind($document, $template) : null;
+
+        return view('modules.transactions.generate-document', [
+            'document' => $document,
+            'record' => $purchaseReturn,
+            'templates' => $templates,
+            'template' => $template,
+            'renderedHtml' => $renderedHtml,
+            'documentLabel' => 'Purchase Return',
+            'generateRouteName' => 'modules.transactions.purchase-returns.generate',
+            'printRouteName' => 'modules.transactions.purchase-returns.print',
+            'backTab' => 'purchase-returns',
+        ]);
+    }
+
+    /**
+     * Print-ready purchase return view.
+     */
+    public function printPurchaseReturn(Request $request, PurchaseReturn $purchaseReturn): View
+    {
+        if ($purchaseReturn->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $purchaseReturn->load(['vendor', 'items.product']);
+        $document = $this->buildDocumentFromPurchaseReturn($purchaseReturn);
+        $template = InvoiceTemplate::find($request->query('template'));
+        $renderedHtml = $template ? $this->binding->bind($document, $template) : null;
+
+        return view('invoices.print', ['invoice' => $document, 'template' => $template, 'renderedHtml' => $renderedHtml]);
+    }
+
+    /**
+     * Generate / preview sales return with selected template.
+     */
+    public function generateSalesReturn(Request $request, SalesReturn $salesReturn): View
+    {
+        if ($salesReturn->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $salesReturn->load(['customer', 'items.product']);
+        $document = $this->buildDocumentFromSalesReturn($salesReturn);
+        $templates = InvoiceTemplate::where('is_active', true)->orderBy('type')->orderBy('name')->get();
+        $templateId = $request->query('template', $templates->where('is_default', true)->first()?->id ?? $templates->first()?->id);
+        $template = $templates->firstWhere('id', (int) $templateId);
+        $renderedHtml = $template ? $this->binding->bind($document, $template) : null;
+
+        return view('modules.transactions.generate-document', [
+            'document' => $document,
+            'record' => $salesReturn,
+            'templates' => $templates,
+            'template' => $template,
+            'renderedHtml' => $renderedHtml,
+            'documentLabel' => 'Sales Return',
+            'generateRouteName' => 'modules.transactions.sales-returns.generate',
+            'printRouteName' => 'modules.transactions.sales-returns.print',
+            'backTab' => 'sales-returns',
+        ]);
+    }
+
+    /**
+     * Print-ready sales return view.
+     */
+    public function printSalesReturn(Request $request, SalesReturn $salesReturn): View
+    {
+        if ($salesReturn->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $salesReturn->load(['customer', 'items.product']);
+        $document = $this->buildDocumentFromSalesReturn($salesReturn);
+        $template = InvoiceTemplate::find($request->query('template'));
+        $renderedHtml = $template ? $this->binding->bind($document, $template) : null;
+
+        return view('invoices.print', ['invoice' => $document, 'template' => $template, 'renderedHtml' => $renderedHtml]);
+    }
+
+    /**
      * Store a new Sale (Invoice).
      */
     public function storeSale(Request $request): RedirectResponse
@@ -83,6 +225,7 @@ class TransactionController extends Controller
             'payment_mode' => 'nullable|string|max:32',
             'party_name' => 'nullable|string|max:191',
             'city' => 'nullable|string|max:191',
+            'district' => 'nullable|string|max:191',
             'state' => 'nullable|string|max:191',
             'gstin' => 'nullable|string|max:64',
             'gr_number' => 'nullable|string|max:64',
@@ -100,15 +243,16 @@ class TransactionController extends Controller
             'items.*.quantity' => 'required|numeric|min:0.001',
             'items.*.rate' => 'required|numeric|min:0',
             'items.*.gst_percent' => 'nullable|numeric|min:0|max:100',
+            'after_action' => 'nullable|in:generate,print',
         ]);
 
         try {
-            DB::transaction(function () use ($validated) {
+            $invoice = DB::transaction(function () use ($validated) {
                 $invoiceNumber = $this->invoiceNumber->generate();
                 $customer = isset($validated['customer_id']) ? Customer::find($validated['customer_id']) : null;
 
                 $invoice = Invoice::create([
-                    'user_id' => auth()->id(),
+                    'user_id' => Auth::id(),
                     'customer_id' => $validated['customer_id'] ?? null,
                     'invoice_number' => $invoiceNumber,
                     'document_type' => $validated['document_type'] ?? 'Tax Invoice',
@@ -117,6 +261,7 @@ class TransactionController extends Controller
                     'payment_mode' => $validated['payment_mode'] ?? 'CASH',
                     'party_name' => $validated['party_name'] ?? $customer?->name,
                     'city' => $validated['city'] ?? $customer?->city,
+                    'district' => $validated['district'] ?? $customer?->district,
                     'state' => $validated['state'] ?? $customer?->state,
                     'gstin' => $validated['gstin'] ?? $customer?->gstin,
                     'gr_number' => $validated['gr_number'] ?? null,
@@ -167,7 +312,7 @@ class TransactionController extends Controller
                     ]);
 
                     if ($product && $quantity > 0) {
-                        $this->stock->stockOut($product, $quantity, 'sale', $invoice->id, "Invoice #{$invoiceNumber}", auth()->id());
+                        $this->stock->stockOut($product, $quantity, 'sale', $invoice->id, "Invoice #{$invoiceNumber}", Auth::id());
                     }
                 }
 
@@ -185,11 +330,24 @@ class TransactionController extends Controller
                     'advance_amount' => $advance > 0 ? $advance : null,
                     'balance_amount' => $balance != 0 ? $balance : null,
                 ]);
+
+                return $invoice;
             });
 
-            return redirect()->route('modules.transactions', ['#sales'])->with('success', 'Sale invoice created successfully!');
-        } catch (\Exception $e) {
-            return redirect()->route('modules.transactions', ['#sales'])->with('error', 'Failed to create sale: ' . $e->getMessage());
+            $afterAction = $request->input('after_action', 'generate');
+            if ($afterAction === 'print') {
+                return redirect()->route('invoices.print', ['invoice' => $invoice->id])
+                    ->with('success', 'Sale invoice created successfully. Opening print view.');
+            }
+
+            return redirect()->route('invoices.generate', ['invoice' => $invoice->id])
+                ->with('success', 'Sale invoice created successfully. Opening generate view.');
+        } catch (\Throwable $e) {
+            $errorKey = stripos($e->getMessage(), 'stock') !== false ? 'items' : 'form';
+            return back()
+                ->withInput()
+                ->withErrors([$errorKey => $e->getMessage()])
+                ->with('error', 'Failed to create sale. No data was saved: ' . $e->getMessage());
         }
     }
 
@@ -222,13 +380,14 @@ class TransactionController extends Controller
             'items.*.quantity' => 'required|numeric|min:0.001',
             'items.*.rate' => 'required|numeric|min:0',
             'items.*.gst_percent' => 'nullable|numeric|min:0|max:100',
+            'after_action' => 'nullable|in:generate,print',
         ]);
 
         try {
-            DB::transaction(function () use ($validated) {
+            $purchase = DB::transaction(function () use ($validated) {
                 $docNumber = $this->purchaseNumber->generate();
                 $purchase = Purchase::create([
-                    'user_id' => auth()->id(),
+                    'user_id' => Auth::id(),
                     'vendor_id' => $validated['vendor_id'],
                     'doc_number' => $docNumber,
                     'document_type' => $validated['document_type'] ?? 'Tax Invoice',
@@ -271,7 +430,7 @@ class TransactionController extends Controller
                         'amount' => $amount,
                         'sort_order' => $i,
                     ]);
-                    $this->stock->stockIn($product, $qty, 'purchase', $purchase->id, "Purchase #{$docNumber}", auth()->id());
+                    $this->stock->stockIn($product, $qty, 'purchase', $purchase->id, "Purchase #{$docNumber}", Auth::id());
                     $subtotal += $itemTaxable;
                     $gstTotal += $itemGst;
                 }
@@ -281,11 +440,24 @@ class TransactionController extends Controller
                     'gst_amount' => $gstTotal,
                     'total' => $subtotal + $gstTotal,
                 ]);
+
+                return $purchase;
             });
 
-            return redirect()->route('modules.transactions', ['#purchases'])->with('success', 'Purchase recorded successfully!');
-        } catch (\Exception $e) {
-            return redirect()->route('modules.transactions', ['#purchases'])->with('error', 'Failed to create purchase: ' . $e->getMessage());
+            $afterAction = $request->input('after_action', 'generate');
+            if ($afterAction === 'print') {
+                return redirect()->route('modules.transactions.purchases.print', ['purchase' => $purchase->id])
+                    ->with('success', 'Purchase recorded successfully. Opening print view.');
+            }
+
+            return redirect()->route('modules.transactions.purchases.generate', ['purchase' => $purchase->id])
+                ->with('success', 'Purchase recorded successfully. Opening generate view.');
+        } catch (\Throwable $e) {
+            $errorKey = stripos($e->getMessage(), 'stock') !== false ? 'items' : 'form';
+            return back()
+                ->withInput()
+                ->withErrors([$errorKey => $e->getMessage()])
+                ->with('error', 'Failed to create purchase. No data was saved: ' . $e->getMessage());
         }
     }
 
@@ -318,13 +490,14 @@ class TransactionController extends Controller
             'items.*.quantity' => 'required|numeric|min:0.001',
             'items.*.rate' => 'required|numeric|min:0',
             'items.*.gst_percent' => 'nullable|numeric|min:0|max:100',
+            'after_action' => 'nullable|in:generate,print',
         ]);
 
         try {
-            DB::transaction(function () use ($validated) {
+            $return = DB::transaction(function () use ($validated) {
                 $docNumber = $this->returnNumber->purchaseReturn();
                 $return = PurchaseReturn::create([
-                    'user_id' => auth()->id(),
+                    'user_id' => Auth::id(),
                     'vendor_id' => $validated['vendor_id'],
                     'doc_number' => $docNumber,
                     'document_type' => $validated['document_type'] ?? 'Tax Invoice',
@@ -369,16 +542,29 @@ class TransactionController extends Controller
                         'amount' => $amount,
                         'sort_order' => $i,
                     ]);
-                    $this->stock->stockOut($product, $qty, 'purchase_return', $return->id, "Purchase Return #{$docNumber}", auth()->id());
+                    $this->stock->stockOut($product, $qty, 'purchase_return', $return->id, "Purchase Return #{$docNumber}", Auth::id());
                     $subtotal += $itemTaxable;
                     $gstTotal += $itemGst;
                 }
                 $return->update(['subtotal' => $subtotal, 'gst_amount' => $gstTotal, 'total' => $subtotal + $gstTotal]);
+
+                return $return;
             });
 
-            return redirect()->route('modules.transactions', ['#purchase-returns'])->with('success', 'Purchase return recorded successfully!');
-        } catch (\Exception $e) {
-            return redirect()->route('modules.transactions', ['#purchase-returns'])->with('error', 'Failed to create purchase return: ' . $e->getMessage());
+            $afterAction = $request->input('after_action', 'generate');
+            if ($afterAction === 'print') {
+                return redirect()->route('modules.transactions.purchase-returns.print', ['purchaseReturn' => $return->id])
+                    ->with('success', 'Purchase return recorded successfully. Opening print view.');
+            }
+
+            return redirect()->route('modules.transactions.purchase-returns.generate', ['purchaseReturn' => $return->id])
+                ->with('success', 'Purchase return recorded successfully. Opening generate view.');
+        } catch (\Throwable $e) {
+            $errorKey = stripos($e->getMessage(), 'stock') !== false ? 'items' : 'form';
+            return back()
+                ->withInput()
+                ->withErrors([$errorKey => $e->getMessage()])
+                ->with('error', 'Failed to create purchase return. No data was saved: ' . $e->getMessage());
         }
     }
 
@@ -411,13 +597,14 @@ class TransactionController extends Controller
             'items.*.quantity' => 'required|numeric|min:0.001',
             'items.*.rate' => 'required|numeric|min:0',
             'items.*.gst_percent' => 'nullable|numeric|min:0|max:100',
+            'after_action' => 'nullable|in:generate,print',
         ]);
 
         try {
-            DB::transaction(function () use ($validated) {
+            $return = DB::transaction(function () use ($validated) {
                 $docNumber = $this->returnNumber->salesReturn();
                 $return = SalesReturn::create([
-                    'user_id' => auth()->id(),
+                    'user_id' => Auth::id(),
                     'customer_id' => $validated['customer_id'],
                     'doc_number' => $docNumber,
                     'document_type' => $validated['document_type'] ?? 'Tax Invoice',
@@ -462,16 +649,182 @@ class TransactionController extends Controller
                         'amount' => $amount,
                         'sort_order' => $i,
                     ]);
-                    $this->stock->stockIn($product, $qty, 'sales_return', $return->id, "Sales Return #{$docNumber}", auth()->id());
+                    $this->stock->stockIn($product, $qty, 'sales_return', $return->id, "Sales Return #{$docNumber}", Auth::id());
                     $subtotal += $itemTaxable;
                     $gstTotal += $itemGst;
                 }
                 $return->update(['subtotal' => $subtotal, 'gst_amount' => $gstTotal, 'total' => $subtotal + $gstTotal]);
+
+                return $return;
             });
 
-            return redirect()->route('modules.transactions', ['#sales-returns'])->with('success', 'Sales return recorded successfully!');
-        } catch (\Exception $e) {
-            return redirect()->route('modules.transactions', ['#sales-returns'])->with('error', 'Failed to create sales return: ' . $e->getMessage());
+            $afterAction = $request->input('after_action', 'generate');
+            if ($afterAction === 'print') {
+                return redirect()->route('modules.transactions.sales-returns.print', ['salesReturn' => $return->id])
+                    ->with('success', 'Sales return recorded successfully. Opening print view.');
+            }
+
+            return redirect()->route('modules.transactions.sales-returns.generate', ['salesReturn' => $return->id])
+                ->with('success', 'Sales return recorded successfully. Opening generate view.');
+        } catch (\Throwable $e) {
+            $errorKey = stripos($e->getMessage(), 'stock') !== false ? 'items' : 'form';
+            return back()
+                ->withInput()
+                ->withErrors([$errorKey => $e->getMessage()])
+                ->with('error', 'Failed to create sales return. No data was saved: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Convert purchase into an invoice-like document for template binding.
+     */
+    protected function buildDocumentFromPurchase(Purchase $purchase): Invoice
+    {
+        $document = new Invoice([
+            'invoice_number' => $purchase->doc_number,
+            'doc_number' => $purchase->doc_number,
+            'document_type' => $purchase->document_type,
+            'invoice_date' => $purchase->purchase_date,
+            'payment_mode' => $purchase->payment_mode,
+            'party_name' => $purchase->party_name ?: $purchase->vendor?->name,
+            'city' => $purchase->city ?: $purchase->vendor?->city,
+            'state' => $purchase->state ?: $purchase->vendor?->state,
+            'gstin' => $purchase->gstin ?: $purchase->vendor?->gstin,
+            'gr_number' => $purchase->gr_number,
+            'gr_date' => $purchase->gr_date,
+            'transport_name' => $purchase->transport_name,
+            'vehicle_number' => $purchase->vehicle_number,
+            'driver_name' => $purchase->driver_name,
+            'place_of_supply' => $purchase->place_of_supply,
+            'eway_bill_no' => $purchase->eway_bill_no,
+            'distance_km' => $purchase->distance_km,
+            'taxable_amount' => $purchase->subtotal,
+            'gst_amount' => $purchase->gst_amount,
+            'cgst_amount' => (float) $purchase->gst_amount / 2,
+            'sgst_amount' => (float) $purchase->gst_amount / 2,
+            'igst_amount' => 0,
+            'net_amount' => $purchase->total,
+            'notes' => $purchase->notes,
+        ]);
+
+        $items = $purchase->items->map(function ($item) {
+            return new InvoiceItem([
+                'product_name' => $item->product_name ?? $item->product?->name,
+                'hsn_code' => $item->hsn_code ?? $item->product?->hsn_code,
+                'quantity' => $item->quantity,
+                'unit' => $item->unit ?? $item->product?->unit?->symbol,
+                'rate' => $item->rate,
+                'gst_percent' => $item->gst_percent,
+                'amount' => $item->amount,
+                'sort_order' => $item->sort_order,
+            ]);
+        });
+
+        $document->setRelation('customer', null);
+        $document->setRelation('items', $items);
+
+        return $document;
+    }
+
+    /**
+     * Convert purchase return into an invoice-like document for template binding.
+     */
+    protected function buildDocumentFromPurchaseReturn(PurchaseReturn $purchaseReturn): Invoice
+    {
+        $document = new Invoice([
+            'invoice_number' => $purchaseReturn->doc_number,
+            'doc_number' => $purchaseReturn->doc_number,
+            'document_type' => $purchaseReturn->document_type,
+            'invoice_date' => $purchaseReturn->return_date,
+            'payment_mode' => $purchaseReturn->payment_mode,
+            'party_name' => $purchaseReturn->party_name ?: $purchaseReturn->vendor?->name,
+            'city' => $purchaseReturn->city ?: $purchaseReturn->vendor?->city,
+            'state' => $purchaseReturn->state ?: $purchaseReturn->vendor?->state,
+            'gstin' => $purchaseReturn->gstin ?: $purchaseReturn->vendor?->gstin,
+            'gr_number' => $purchaseReturn->gr_number,
+            'gr_date' => $purchaseReturn->gr_date,
+            'transport_name' => $purchaseReturn->transport_name,
+            'vehicle_number' => $purchaseReturn->vehicle_number,
+            'driver_name' => $purchaseReturn->driver_name,
+            'place_of_supply' => $purchaseReturn->place_of_supply,
+            'eway_bill_no' => $purchaseReturn->eway_bill_no,
+            'distance_km' => $purchaseReturn->distance_km,
+            'taxable_amount' => $purchaseReturn->subtotal,
+            'gst_amount' => $purchaseReturn->gst_amount,
+            'cgst_amount' => (float) $purchaseReturn->gst_amount / 2,
+            'sgst_amount' => (float) $purchaseReturn->gst_amount / 2,
+            'igst_amount' => 0,
+            'net_amount' => $purchaseReturn->total,
+            'notes' => $purchaseReturn->notes,
+        ]);
+
+        $items = $purchaseReturn->items->map(function ($item) {
+            return new InvoiceItem([
+                'product_name' => $item->product_name ?? $item->product?->name,
+                'hsn_code' => $item->hsn_code ?? $item->product?->hsn_code,
+                'quantity' => $item->quantity,
+                'unit' => $item->unit ?? $item->product?->unit?->symbol,
+                'rate' => $item->rate,
+                'gst_percent' => $item->gst_percent,
+                'amount' => $item->amount,
+                'sort_order' => $item->sort_order,
+            ]);
+        });
+
+        $document->setRelation('customer', null);
+        $document->setRelation('items', $items);
+
+        return $document;
+    }
+
+    /**
+     * Convert sales return into an invoice-like document for template binding.
+     */
+    protected function buildDocumentFromSalesReturn(SalesReturn $salesReturn): Invoice
+    {
+        $document = new Invoice([
+            'invoice_number' => $salesReturn->doc_number,
+            'doc_number' => $salesReturn->doc_number,
+            'document_type' => $salesReturn->document_type,
+            'invoice_date' => $salesReturn->return_date,
+            'payment_mode' => $salesReturn->payment_mode,
+            'party_name' => $salesReturn->party_name ?: $salesReturn->customer?->name,
+            'city' => $salesReturn->city ?: $salesReturn->customer?->city,
+            'state' => $salesReturn->state ?: $salesReturn->customer?->state,
+            'gstin' => $salesReturn->gstin ?: $salesReturn->customer?->gstin,
+            'gr_number' => $salesReturn->gr_number,
+            'gr_date' => $salesReturn->gr_date,
+            'transport_name' => $salesReturn->transport_name,
+            'vehicle_number' => $salesReturn->vehicle_number,
+            'driver_name' => $salesReturn->driver_name,
+            'place_of_supply' => $salesReturn->place_of_supply,
+            'eway_bill_no' => $salesReturn->eway_bill_no,
+            'distance_km' => $salesReturn->distance_km,
+            'taxable_amount' => $salesReturn->subtotal,
+            'gst_amount' => $salesReturn->gst_amount,
+            'cgst_amount' => (float) $salesReturn->gst_amount / 2,
+            'sgst_amount' => (float) $salesReturn->gst_amount / 2,
+            'igst_amount' => 0,
+            'net_amount' => $salesReturn->total,
+            'notes' => $salesReturn->notes,
+        ]);
+
+        $items = $salesReturn->items->map(function ($item) {
+            return new InvoiceItem([
+                'product_name' => $item->product_name ?? $item->product?->name,
+                'hsn_code' => $item->hsn_code ?? $item->product?->hsn_code,
+                'quantity' => $item->quantity,
+                'unit' => $item->unit ?? $item->product?->unit?->symbol,
+                'rate' => $item->rate,
+                'gst_percent' => $item->gst_percent,
+                'amount' => $item->amount,
+                'sort_order' => $item->sort_order,
+            ]);
+        });
+
+        $document->setRelation('customer', $salesReturn->customer);
+        $document->setRelation('items', $items);
+
+        return $document;
     }
 }

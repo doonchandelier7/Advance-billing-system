@@ -5,12 +5,14 @@ use App\Http\Controllers\AiInvoiceController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InvoiceSetupController;
+use App\Http\Controllers\LocationController;
 use App\Http\Controllers\MasterSetupController;
 use App\Http\Controllers\ModulePageController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    if (auth()->check()) {
+    if (Auth::check()) {
         return redirect()->route('dashboard');
     }
     return redirect()->route('login');
@@ -42,16 +44,25 @@ Route::middleware('auth')->group(function () {
     Route::post('/modules/master-setup/products', [MasterSetupController::class, 'storeProduct'])->name('modules.master-setup.products.store');
     Route::put('/modules/master-setup/products/{product}', [MasterSetupController::class, 'updateProduct'])->name('modules.master-setup.products.update');
     Route::delete('/modules/master-setup/products/{product}', [MasterSetupController::class, 'destroyProduct'])->name('modules.master-setup.products.destroy');
+    Route::post('/modules/master-setup/products/{product}/stock', [MasterSetupController::class, 'adjustProductStock'])->name('modules.master-setup.products.stock.adjust');
+    Route::get('/modules/master-setup/products/{product}/stock-logs', [MasterSetupController::class, 'productStockLogs'])->name('modules.master-setup.products.stock.logs');
+    Route::post('/modules/master-setup/products/settings/gst', [MasterSetupController::class, 'updateProductGstSettings'])->name('modules.master-setup.products.settings.gst');
 
     Route::get('/modules/transactions', [ModulePageController::class, 'transactions'])->name('modules.transactions');
     Route::get('/modules/transactions/sales/create', [\App\Http\Controllers\TransactionController::class, 'createSale'])->name('modules.transactions.sales.create');
     Route::post('/modules/transactions/sales', [\App\Http\Controllers\TransactionController::class, 'storeSale'])->name('modules.transactions.sales.store');
     Route::get('/modules/transactions/purchases/create', [\App\Http\Controllers\TransactionController::class, 'createPurchase'])->name('modules.transactions.purchases.create');
     Route::post('/modules/transactions/purchases', [\App\Http\Controllers\TransactionController::class, 'storePurchase'])->name('modules.transactions.purchases.store');
+    Route::get('/modules/transactions/purchases/{purchase}/generate', [\App\Http\Controllers\TransactionController::class, 'generatePurchase'])->name('modules.transactions.purchases.generate');
+    Route::get('/modules/transactions/purchases/{purchase}/print', [\App\Http\Controllers\TransactionController::class, 'printPurchase'])->name('modules.transactions.purchases.print');
     Route::get('/modules/transactions/purchase-returns/create', [\App\Http\Controllers\TransactionController::class, 'createPurchaseReturn'])->name('modules.transactions.purchase-returns.create');
     Route::post('/modules/transactions/purchase-returns', [\App\Http\Controllers\TransactionController::class, 'storePurchaseReturn'])->name('modules.transactions.purchase-returns.store');
+    Route::get('/modules/transactions/purchase-returns/{purchaseReturn}/generate', [\App\Http\Controllers\TransactionController::class, 'generatePurchaseReturn'])->name('modules.transactions.purchase-returns.generate');
+    Route::get('/modules/transactions/purchase-returns/{purchaseReturn}/print', [\App\Http\Controllers\TransactionController::class, 'printPurchaseReturn'])->name('modules.transactions.purchase-returns.print');
     Route::get('/modules/transactions/sales-returns/create', [\App\Http\Controllers\TransactionController::class, 'createSalesReturn'])->name('modules.transactions.sales-returns.create');
     Route::post('/modules/transactions/sales-returns', [\App\Http\Controllers\TransactionController::class, 'storeSalesReturn'])->name('modules.transactions.sales-returns.store');
+    Route::get('/modules/transactions/sales-returns/{salesReturn}/generate', [\App\Http\Controllers\TransactionController::class, 'generateSalesReturn'])->name('modules.transactions.sales-returns.generate');
+    Route::get('/modules/transactions/sales-returns/{salesReturn}/print', [\App\Http\Controllers\TransactionController::class, 'printSalesReturn'])->name('modules.transactions.sales-returns.print');
     Route::get('/modules/books-registers', [ModulePageController::class, 'booksRegisters'])->name('modules.books-registers');
     Route::get('/modules/reports', [ModulePageController::class, 'reports'])->name('modules.reports');
     Route::post('/modules/reports/upload', [ModulePageController::class, 'uploadReport'])->name('modules.reports.upload');
@@ -64,6 +75,13 @@ Route::middleware('auth')->group(function () {
     Route::put('/modules/accounting/{account}', [AccountingController::class, 'update'])->name('modules.accounting.update');
     Route::delete('/modules/accounting/{account}', [AccountingController::class, 'destroy'])->name('modules.accounting.destroy');
 
+    // Location API (States, Districts, Cities)
+    Route::prefix('api/locations')->name('locations.')->group(function () {
+        Route::get('/states', [LocationController::class, 'states'])->name('states');
+        Route::get('/districts', [LocationController::class, 'districts'])->name('districts');
+        Route::get('/cities', [LocationController::class, 'cities'])->name('cities');
+    });
+
     // Invoice Templates & Generation
     Route::prefix('invoices')->name('invoices.')->group(function () {
         Route::get('/', [InvoiceSetupController::class, 'index'])->name('index');
@@ -72,6 +90,7 @@ Route::middleware('auth')->group(function () {
         Route::put('/templates/{template}', [InvoiceSetupController::class, 'updateTemplate'])->name('templates.update');
         Route::delete('/templates/{template}', [InvoiceSetupController::class, 'destroyTemplate'])->name('templates.destroy');
         Route::get('/create', [InvoiceSetupController::class, 'create'])->name('create');
+        Route::get('/search-party', [InvoiceSetupController::class, 'searchParty'])->name('search-party');
         Route::post('/', [InvoiceSetupController::class, 'store'])->name('store');
         Route::get('/{invoice}/generate', [InvoiceSetupController::class, 'generate'])->name('generate');
         Route::get('/{invoice}/print', [InvoiceSetupController::class, 'print'])->name('print');

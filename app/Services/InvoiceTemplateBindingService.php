@@ -13,7 +13,9 @@ class InvoiceTemplateBindingService
      */
     public function bind(Invoice $invoice, InvoiceTemplate $template): string
     {
-        $invoice->load(['customer', 'items.product']);
+        if (!$invoice->relationLoaded('customer') || !$invoice->relationLoaded('items')) {
+            $invoice->load(['customer', 'items.product']);
+        }
         $data = $this->invoiceToPlaceholders($invoice);
         $html = ($template->header_html ?? '') . "\n" . ($template->body_html ?? '') . "\n" . ($template->footer_html ?? '');
         foreach ($data as $key => $value) {
@@ -40,6 +42,7 @@ class InvoiceTemplateBindingService
             'customer_name' => 'Same as party_name',
             'customer_address' => 'Customer full address (city, state)',
             'city' => 'Buyer city',
+            'district' => 'Buyer district',
             'state' => 'Buyer state',
             'gstin' => 'Buyer GSTIN number',
             'buyer_state_code' => 'Buyer state code (from GSTIN)',
@@ -71,10 +74,10 @@ class InvoiceTemplateBindingService
             'total_gross' => 'Same as net_amount',
 
             // Items
-            'items_rows' => 'HTML table rows (basic: #, Product, HSN, Qty, Unit, Rate, GST%, Amount)',
-            'items_rows_gst_split' => 'HTML table rows (detailed: SR, Desc, HSN, Qty, UOM, Price, Amount, GST%, SGST, CGST, G.Amount)',
+            'items_rows' => 'HTML table rows (#, Product, HSN, Qty, Unit, Rate, Taxable(Qty×Rate), Tax%, GST Amt, Total + Grand Total row)',
+            'items_rows_gst_split' => 'HTML table rows (SR, Desc, HSN, Qty, UOM, Price, Taxable, GST%, SGST, CGST, G.Amount + Grand Total row)',
             'items_count' => 'Number of line items',
-            'tax_slab_rows' => 'Tax slab breakdown rows (0%, 5%, 12%, 18%, 28%)',
+            'tax_slab_rows' => 'Tax slab breakdown rows (GST%, taxable, SGST, CGST, IGST, tax total, gross total + grand row)',
 
             // Seller / Company (from Settings)
             'seller_name' => 'Seller company name (from settings)',
@@ -88,11 +91,17 @@ class InvoiceTemplateBindingService
             'seller_email' => 'Seller email (from settings)',
             'seller_pan' => 'Seller PAN (from settings)',
 
-            // Bank (from Settings)
-            'bank_account_no' => 'Bank account number (from settings)',
-            'bank_name' => 'Bank name (from settings)',
-            'bank_branch' => 'Bank branch name (from settings)',
-            'bank_ifsc' => 'Bank IFSC code (from settings)',
+            // Buyer Bank (from invoice)
+            'buyer_bank_name' => 'Buyer bank name',
+            'buyer_bank_account_no' => 'Buyer bank account number',
+            'buyer_bank_branch' => 'Buyer bank branch name',
+            'buyer_bank_ifsc' => 'Buyer bank IFSC code',
+
+            // Seller Bank (from Settings)
+            'bank_account_no' => 'Seller bank account number (from settings)',
+            'bank_name' => 'Seller bank name (from settings)',
+            'bank_branch' => 'Seller bank branch name (from settings)',
+            'bank_ifsc' => 'Seller bank IFSC code (from settings)',
 
             // System
             'company_name' => 'Company name from config',
@@ -106,6 +115,7 @@ class InvoiceTemplateBindingService
         $customer = $invoice->customer;
         $customerAddress = implode(', ', array_filter([
             $invoice->city ?? $customer?->city,
+            $invoice->district ?? $customer?->district,
             $invoice->state ?? $customer?->state,
         ]));
 
@@ -141,6 +151,7 @@ class InvoiceTemplateBindingService
             'customer_name' => $invoice->party_name ?? $customer?->name ?? '',
             'customer_address' => $customerAddress,
             'city' => $invoice->city ?? $customer?->city ?? '',
+            'district' => $invoice->district ?? $customer?->district ?? '',
             'state' => $invoice->state ?? $customer?->state ?? '',
             'gstin' => $buyerGstin,
             'buyer_state_code' => $buyerStateCode,
@@ -189,7 +200,13 @@ class InvoiceTemplateBindingService
             'seller_email' => $sellerEmail,
             'seller_pan' => $sellerPan,
 
-            // Bank
+            // Buyer Bank
+            'buyer_bank_name' => $invoice->buyer_bank_name ?? '',
+            'buyer_bank_account_no' => $invoice->buyer_bank_account_no ?? '',
+            'buyer_bank_branch' => $invoice->buyer_bank_branch ?? '',
+            'buyer_bank_ifsc' => $invoice->buyer_bank_ifsc ?? '',
+
+            // Seller Bank
             'bank_account_no' => $bankAccountNo,
             'bank_name' => $bankName,
             'bank_branch' => $bankBranch,
@@ -203,23 +220,50 @@ class InvoiceTemplateBindingService
     }
 
     /**
-     * Basic items rows (8 columns).
+     * Basic items rows (10 columns).
+     * #, Product, HSN, Qty, Unit, Rate, Taxable(Qty×Rate), Tax%, GST Amt, Total
      */
     protected function itemsToRows(Invoice $invoice): string
     {
         $rows = '';
+        $overallTaxable = 0;
+        $overallGst = 0;
+        $overallTotal = 0;
+
         foreach ($invoice->items as $i => $item) {
+            $qty = (float) $item->quantity;
+            $rate = (float) $item->rate;
+            $gstPct = (float) ($item->gst_percent ?? 0);
+            $taxable = round($qty * $rate, 2);
+            $gstAmt = $gstPct ? round($taxable * ($gstPct / 100), 2) : 0;
+            $itemTotal = $taxable + $gstAmt;
+
+            $overallTaxable += $taxable;
+            $overallGst += $gstAmt;
+            $overallTotal += $itemTotal;
+
             $rows .= '<tr>';
             $rows .= '<td style="text-align:center;">' . ($i + 1) . '</td>';
             $rows .= '<td>' . e($item->product_name ?? $item->product?->name ?? '') . '</td>';
             $rows .= '<td style="text-align:center;">' . e($item->hsn_code ?? '') . '</td>';
-            $rows .= '<td style="text-align:right;">' . number_format($item->quantity, 3) . '</td>';
+            $rows .= '<td style="text-align:right;">' . number_format($qty, 3) . '</td>';
             $rows .= '<td style="text-align:center;">' . e($item->unit ?? '') . '</td>';
-            $rows .= '<td style="text-align:right;">' . number_format($item->rate, 2) . '</td>';
-            $rows .= '<td style="text-align:right;">' . ($item->gst_percent ? number_format($item->gst_percent, 1) . '%' : '') . '</td>';
-            $rows .= '<td style="text-align:right;font-weight:600;">' . number_format($item->amount, 2) . '</td>';
+            $rows .= '<td style="text-align:right;">' . number_format($rate, 2) . '</td>';
+            $rows .= '<td style="text-align:right;font-weight:600;">' . number_format($taxable, 2) . '</td>';
+            $rows .= '<td style="text-align:right;">' . ($gstPct ? number_format($gstPct, 1) . '%' : '-') . '</td>';
+            $rows .= '<td style="text-align:right;">' . ($gstAmt > 0 ? number_format($gstAmt, 2) : '-') . '</td>';
+            $rows .= '<td style="text-align:right;font-weight:700;">' . number_format($itemTotal, 2) . '</td>';
             $rows .= '</tr>';
         }
+
+        $rows .= '<tr style="border-top:2px solid #000;font-weight:700;background:#f8f9fa;">';
+        $rows .= '<td colspan="6" style="text-align:right;font-weight:700;">Grand Total:</td>';
+        $rows .= '<td style="text-align:right;font-weight:700;">' . number_format($overallTaxable, 2) . '</td>';
+        $rows .= '<td></td>';
+        $rows .= '<td style="text-align:right;font-weight:700;">' . number_format($overallGst, 2) . '</td>';
+        $rows .= '<td style="text-align:right;font-weight:700;font-size:1.05em;">' . number_format($overallTotal, 2) . '</td>';
+        $rows .= '</tr>';
+
         return $rows;
     }
 
@@ -269,21 +313,43 @@ class InvoiceTemplateBindingService
             $rows .= '</tr>';
         }
 
+        $grandTaxable = 0;
+        $grandSgst = 0;
+        $grandCgst = 0;
+        $grandTotal = 0;
+        foreach ($invoice->items as $item) {
+            $qty = (float) $item->quantity;
+            $rate = (float) $item->rate;
+            $gstPct = (float) ($item->gst_percent ?? 0);
+            $taxable = round($qty * $rate, 2);
+            $gstAmt = $gstPct ? round($taxable * ($gstPct / 100), 2) : 0;
+            $grandTaxable += $taxable;
+            $grandSgst += round($gstAmt / 2, 2);
+            $grandCgst += round($gstAmt / 2, 2);
+            $grandTotal += $taxable + round($gstAmt / 2, 2) + round($gstAmt / 2, 2);
+        }
+
+        $rows .= '<tr style="font-weight:700;background:#f8f9fa;">';
+        $rows .= '<td style="' . $bd . 'padding:4px 6px;" colspan="5"></td>';
+        $rows .= '<td style="' . $bd . 'padding:4px 6px;text-align:right;font-weight:700;">Total</td>';
+        $rows .= '<td style="' . $bd . 'padding:4px 6px;text-align:right;font-weight:700;">' . number_format($grandTaxable, 2) . '</td>';
+        $rows .= '<td style="' . $bd . 'padding:4px 6px;"></td>';
+        $rows .= '<td style="' . $bd . 'padding:4px 6px;text-align:right;font-weight:700;">' . number_format($grandSgst, 2) . '</td>';
+        $rows .= '<td style="' . $bd . 'padding:4px 6px;text-align:right;font-weight:700;">' . number_format($grandCgst, 2) . '</td>';
+        $rows .= '<td style="' . $bd . 'padding:4px 6px;text-align:right;font-weight:700;font-size:1.05em;">' . number_format($grandTotal, 2) . '</td>';
+        $rows .= '</tr>';
+
         return $rows;
     }
 
     /**
-     * Tax slab breakdown rows (0%, 5%, 12%, 18%, 28%).
-     * Each row: GST%, Sales Amount, SGST, CGST
+     * Tax slab breakdown rows grouped by GST%.
+     * Each row: GST%, Taxable, SGST, CGST, IGST, Tax Total, Gross Total.
      */
     protected function taxSlabRows(Invoice $invoice): string
     {
-        $slabs = [0, 5, 12, 18, 28];
+        $defaultSlabs = [0, 5, 12, 18, 28];
         $grouped = [];
-
-        foreach ($slabs as $slab) {
-            $grouped[$slab] = ['sales' => 0, 'sgst' => 0, 'cgst' => 0];
-        }
 
         foreach ($invoice->items as $item) {
             $gstPct = (float) ($item->gst_percent ?? 0);
@@ -291,30 +357,74 @@ class InvoiceTemplateBindingService
             $rate = (float) $item->rate;
             $taxable = round($qty * $rate, 2);
             $gstAmt = $gstPct ? round($taxable * ($gstPct / 100), 2) : 0;
+            $igst = 0.0;
             $sgst = round($gstAmt / 2, 2);
             $cgst = round($gstAmt / 2, 2);
 
-            // Find closest slab or use exact percent
-            $key = (int) round($gstPct);
-            if (!isset($grouped[$key])) {
-                $grouped[$key] = ['sales' => 0, 'sgst' => 0, 'cgst' => 0];
+            $key = rtrim(rtrim(number_format($gstPct, 2, '.', ''), '0'), '.');
+            if ($key === '') {
+                $key = '0';
             }
-            $grouped[$key]['sales'] += $taxable;
+            if (!isset($grouped[$key])) {
+                $grouped[$key] = ['taxable' => 0, 'sgst' => 0, 'cgst' => 0, 'igst' => 0];
+            }
+            $grouped[$key]['taxable'] += $taxable;
             $grouped[$key]['sgst'] += $sgst;
             $grouped[$key]['cgst'] += $cgst;
+            $grouped[$key]['igst'] += $igst;
+        }
+
+        foreach ($defaultSlabs as $slab) {
+            $key = (string) $slab;
+            if (!isset($grouped[$key])) {
+                $grouped[$key] = ['taxable' => 0, 'sgst' => 0, 'cgst' => 0, 'igst' => 0];
+            }
         }
 
         $bd = 'border:1px solid #000;';
         $rows = '';
-        foreach ($slabs as $slab) {
+        $slabKeys = array_keys($grouped);
+        usort($slabKeys, fn ($a, $b) => (float) $a <=> (float) $b);
+
+        $grandTaxable = 0;
+        $grandSgst = 0;
+        $grandCgst = 0;
+        $grandIgst = 0;
+        $grandTax = 0;
+        $grandGross = 0;
+
+        foreach ($slabKeys as $slab) {
             $d = $grouped[$slab];
+            $taxTotal = $d['sgst'] + $d['cgst'] + $d['igst'];
+            $gross = $d['taxable'] + $taxTotal;
+
+            $grandTaxable += $d['taxable'];
+            $grandSgst += $d['sgst'];
+            $grandCgst += $d['cgst'];
+            $grandIgst += $d['igst'];
+            $grandTax += $taxTotal;
+            $grandGross += $gross;
+
             $rows .= '<tr>';
             $rows .= '<td style="' . $bd . 'padding:3px 6px;font-weight:700;">' . $slab . '%</td>';
-            $rows .= '<td style="' . $bd . 'padding:3px 6px;text-align:right;">' . ($d['sales'] ? number_format($d['sales'], 1) : '0') . '</td>';
-            $rows .= '<td style="' . $bd . 'padding:3px 6px;text-align:right;">' . ($d['sgst'] ? number_format($d['sgst'], 0) : '0') . '</td>';
-            $rows .= '<td style="' . $bd . 'padding:3px 6px;text-align:right;">' . ($d['cgst'] ? number_format($d['cgst'], 0) : '0') . '</td>';
+            $rows .= '<td style="' . $bd . 'padding:3px 6px;text-align:right;">' . number_format($d['taxable'], 2) . '</td>';
+            $rows .= '<td style="' . $bd . 'padding:3px 6px;text-align:right;">' . number_format($d['sgst'], 2) . '</td>';
+            $rows .= '<td style="' . $bd . 'padding:3px 6px;text-align:right;">' . number_format($d['cgst'], 2) . '</td>';
+            $rows .= '<td style="' . $bd . 'padding:3px 6px;text-align:right;">' . number_format($d['igst'], 2) . '</td>';
+            $rows .= '<td style="' . $bd . 'padding:3px 6px;text-align:right;font-weight:700;">' . number_format($taxTotal, 2) . '</td>';
+            $rows .= '<td style="' . $bd . 'padding:3px 6px;text-align:right;font-weight:700;">' . number_format($gross, 2) . '</td>';
             $rows .= '</tr>';
         }
+
+        $rows .= '<tr style="font-weight:700;background:#f8f9fa;">';
+        $rows .= '<td style="' . $bd . 'padding:4px 6px;">Grand Total</td>';
+        $rows .= '<td style="' . $bd . 'padding:4px 6px;text-align:right;">' . number_format($grandTaxable, 2) . '</td>';
+        $rows .= '<td style="' . $bd . 'padding:4px 6px;text-align:right;">' . number_format($grandSgst, 2) . '</td>';
+        $rows .= '<td style="' . $bd . 'padding:4px 6px;text-align:right;">' . number_format($grandCgst, 2) . '</td>';
+        $rows .= '<td style="' . $bd . 'padding:4px 6px;text-align:right;">' . number_format($grandIgst, 2) . '</td>';
+        $rows .= '<td style="' . $bd . 'padding:4px 6px;text-align:right;">' . number_format($grandTax, 2) . '</td>';
+        $rows .= '<td style="' . $bd . 'padding:4px 6px;text-align:right;font-size:1.05em;">' . number_format($grandGross, 2) . '</td>';
+        $rows .= '</tr>';
 
         return $rows;
     }

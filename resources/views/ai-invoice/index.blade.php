@@ -129,8 +129,10 @@
                         <th class="text-right">Qty</th>
                         <th>Unit</th>
                         <th class="text-right">Rate</th>
+                        <th class="text-right">Taxable (Qty×Rate)</th>
                         <th class="text-right">GST %</th>
-                        <th class="text-right">Amount</th>
+                        <th class="text-right">GST Amt</th>
+                        <th class="text-right">Total</th>
                         <th style="width: 90px;"></th>
                     </tr>
                 </thead>
@@ -395,17 +397,41 @@
     function addItemRow(row = {}, index) {
         const tr = document.createElement('tr');
         const low = (row.confidence !== undefined && row.confidence < 0.7);
+        const qty = parseFloat(row.quantity) || 0;
+        const rate = parseFloat(row.rate) || 0;
+        const gstPct = parseFloat(row.gst_percent) || 0;
+        const taxable = Math.round(qty * rate * 100) / 100;
+        const gstAmt = gstPct ? Math.round(taxable * (gstPct / 100) * 100) / 100 : 0;
+        const total = taxable + gstAmt;
         tr.innerHTML = `
             <td><input type="text" name="items[${index}][product_name]" value="${escapeAttr(row.product_name || '')}" class="form-control ${low ? 'border-warning' : ''}" placeholder="Product name"></td>
             <td><input type="text" name="items[${index}][hsn_code]" value="${escapeAttr(row.hsn_code || '')}" class="form-control" placeholder="HSN"></td>
             <td><input type="number" name="items[${index}][quantity]" value="${row.quantity ?? ''}" step="0.001" min="0" class="form-control item-qty text-right" placeholder="0"></td>
             <td><input type="text" name="items[${index}][unit]" value="${escapeAttr(row.unit || '')}" class="form-control" placeholder="Unit"></td>
             <td><input type="number" name="items[${index}][rate]" value="${row.rate ?? ''}" step="0.0001" min="0" class="form-control item-rate text-right" placeholder="0.00"></td>
-            <td><input type="number" name="items[${index}][gst_percent]" value="${row.gst_percent ?? ''}" step="0.01" min="0" max="100" class="form-control text-right" placeholder="0"></td>
-            <td><input type="number" name="items[${index}][amount]" value="${row.amount ?? ''}" step="0.01" min="0" class="form-control item-amount text-right" placeholder="0.00"></td>
+            <td class="text-right item-taxable" style="color:#667eea;font-weight:600;vertical-align:middle;">${taxable ? taxable.toFixed(2) : '-'}</td>
+            <td><input type="number" name="items[${index}][gst_percent]" value="${row.gst_percent ?? ''}" step="0.01" min="0" max="100" class="form-control item-gst-pct text-right" placeholder="0"></td>
+            <td class="text-right item-gst-amt" style="vertical-align:middle;">${gstAmt ? gstAmt.toFixed(2) : '-'}</td>
+            <td class="text-right item-total" style="font-weight:700;vertical-align:middle;">${total ? total.toFixed(2) : '-'}
+                <input type="hidden" name="items[${index}][amount]" value="${row.amount ?? total || ''}" class="item-amount-hidden">
+            </td>
             <td class="text-center p-2"><button type="button" class="btn btn-sm btn-danger remove-row"><i class="fas fa-trash"></i></button></td>
         `;
         tr.querySelector('.remove-row').addEventListener('click', () => tr.remove());
+        function recalcRow() {
+            const q = parseFloat(tr.querySelector('.item-qty').value) || 0;
+            const r = parseFloat(tr.querySelector('.item-rate').value) || 0;
+            const g = parseFloat(tr.querySelector('.item-gst-pct').value) || 0;
+            const t = Math.round(q * r * 100) / 100;
+            const ga = g ? Math.round(t * (g / 100) * 100) / 100 : 0;
+            const tot = t + ga;
+            tr.querySelector('.item-taxable').textContent = t ? t.toFixed(2) : '-';
+            tr.querySelector('.item-gst-amt').textContent = ga ? ga.toFixed(2) : '-';
+            tr.querySelector('.item-total').innerHTML = (tot ? tot.toFixed(2) : '-') + '<input type="hidden" name="items[' + index + '][amount]" value="' + tot + '" class="item-amount-hidden">';
+        }
+        tr.querySelector('.item-qty').addEventListener('input', recalcRow);
+        tr.querySelector('.item-rate').addEventListener('input', recalcRow);
+        tr.querySelector('.item-gst-pct').addEventListener('input', recalcRow);
         itemsBody.appendChild(tr);
     }
 

@@ -13,6 +13,23 @@
 <div class="alert alert-danger alert-dismissible fade show"><button type="button" class="close" data-dismiss="alert">&times;</button><i class="fas fa-exclamation-circle mr-2"></i>{{ session('error') }}</div>
 @endif
 
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <form method="GET" action="{{ route('modules.transactions') }}" class="d-flex flex-wrap align-items-end" style="gap:10px;">
+            <div>
+                <label class="mb-1 text-muted" style="font-size:0.75rem;">From Date</label>
+                <input type="date" name="from_date" value="{{ $fromDate }}" class="form-control form-control-sm">
+            </div>
+            <div>
+                <label class="mb-1 text-muted" style="font-size:0.75rem;">To Date</label>
+                <input type="date" name="to_date" value="{{ $toDate }}" class="form-control form-control-sm">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-filter mr-1"></i> Apply Filter</button>
+            <a href="{{ route('modules.transactions') }}" class="btn btn-secondary btn-sm"><i class="fas fa-undo mr-1"></i> Reset</a>
+        </form>
+    </div>
+</div>
+
 {{-- Summary Cards --}}
 <div class="row mb-4">
     <div class="col-lg-3 col-md-6 col-12 mb-3">
@@ -98,7 +115,7 @@
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover mb-0">
-                    <thead><tr><th>#</th><th>Invoice No.</th><th>Date</th><th>Customer</th><th>Mode</th><th class="text-right">Taxable</th><th class="text-right">GST</th><th class="text-right">Net Amount</th></tr></thead>
+                    <thead><tr><th>#</th><th>Invoice No.</th><th>Date</th><th>Customer</th><th>Mode</th><th class="text-right">Taxable</th><th class="text-right">GST</th><th class="text-right">Net Amount</th><th class="text-right">Actions</th></tr></thead>
                     <tbody>
                     @forelse($sales as $i => $s)
                         <tr>
@@ -110,9 +127,13 @@
                             <td class="text-right">{{ number_format($s->taxable_amount, 2) }}</td>
                             <td class="text-right" style="color:#fdcb6e;">{{ number_format($s->gst_amount, 2) }}</td>
                             <td class="text-right" style="font-weight:700; color:#55efc4;">{{ number_format($s->net_amount, 2) }}</td>
+                            <td class="text-right">
+                                <a href="{{ route('invoices.generate', $s) }}" class="btn btn-sm btn-outline-primary">Generate</a>
+                                <a href="{{ route('invoices.print', $s) }}" class="btn btn-sm btn-outline-success" target="_blank">Print</a>
+                            </td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-file-invoice-dollar fa-2x mb-2 d-block" style="opacity:0.3;"></i>No sales invoices yet</td></tr>
+                        <tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-file-invoice-dollar fa-2x mb-2 d-block" style="opacity:0.3;"></i>No sales invoices yet</td></tr>
                     @endforelse
                     </tbody>
                 </table>
@@ -134,7 +155,7 @@
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover mb-0">
-                    <thead><tr><th>#</th><th>Doc No.</th><th>Date</th><th>Vendor</th><th>Mode</th><th class="text-right">Subtotal</th><th class="text-right">GST</th><th class="text-right">Total</th></tr></thead>
+                    <thead><tr><th>#</th><th>Doc No.</th><th>Date</th><th>Vendor</th><th>Mode</th><th class="text-right">Subtotal</th><th class="text-right">GST</th><th class="text-right">Total</th><th class="text-right">Actions</th></tr></thead>
                     <tbody>
                     @forelse($purchases as $i => $p)
                         <tr>
@@ -146,9 +167,13 @@
                             <td class="text-right">{{ number_format($p->subtotal, 2) }}</td>
                             <td class="text-right" style="color:#fdcb6e;">{{ number_format($p->gst_amount, 2) }}</td>
                             <td class="text-right" style="font-weight:700; color:#a4b4f4;">{{ number_format($p->total, 2) }}</td>
+                            <td class="text-right">
+                                <a href="{{ route('modules.transactions.purchases.generate', $p) }}" class="btn btn-sm btn-outline-primary">Generate</a>
+                                <a href="{{ route('modules.transactions.purchases.print', $p) }}" class="btn btn-sm btn-outline-success" target="_blank">Print</a>
+                            </td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-shopping-cart fa-2x mb-2 d-block" style="opacity:0.3;"></i>No purchases yet</td></tr>
+                        <tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-shopping-cart fa-2x mb-2 d-block" style="opacity:0.3;"></i>No purchases yet</td></tr>
                     @endforelse
                     </tbody>
                 </table>
@@ -170,7 +195,7 @@
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover mb-0">
-                    <thead><tr><th>#</th><th>Doc No.</th><th>Date</th><th>Vendor</th><th>Mode</th><th class="text-right">Total</th></tr></thead>
+                    <thead><tr><th>#</th><th>Doc No.</th><th>Date</th><th>Vendor</th><th>Mode</th><th class="text-right">Total</th><th class="text-right">Actions</th></tr></thead>
                     <tbody>
                     @forelse($purchaseReturns as $i => $pr)
                         <tr>
@@ -180,9 +205,13 @@
                             <td>@if($pr->vendor)<span style="font-weight:500;">{{ $pr->vendor->name }}</span>@else —@endif</td>
                             <td><span class="badge badge-{{ ($pr->payment_mode ?? 'CASH') === 'CASH' ? 'success' : 'info' }}">{{ $pr->payment_mode ?? 'CASH' }}</span></td>
                             <td class="text-right" style="font-weight:700; color:#fdcb6e;">{{ number_format($pr->total, 2) }}</td>
+                            <td class="text-right">
+                                <a href="{{ route('modules.transactions.purchase-returns.generate', $pr) }}" class="btn btn-sm btn-outline-primary">Generate</a>
+                                <a href="{{ route('modules.transactions.purchase-returns.print', $pr) }}" class="btn btn-sm btn-outline-success" target="_blank">Print</a>
+                            </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="text-center text-muted py-4"><i class="fas fa-undo fa-2x mb-2 d-block" style="opacity:0.3;"></i>No purchase returns yet</td></tr>
+                        <tr><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-undo fa-2x mb-2 d-block" style="opacity:0.3;"></i>No purchase returns yet</td></tr>
                     @endforelse
                     </tbody>
                 </table>
@@ -204,7 +233,7 @@
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover mb-0">
-                    <thead><tr><th>#</th><th>Doc No.</th><th>Date</th><th>Customer</th><th>Mode</th><th class="text-right">Total</th></tr></thead>
+                    <thead><tr><th>#</th><th>Doc No.</th><th>Date</th><th>Customer</th><th>Mode</th><th class="text-right">Total</th><th class="text-right">Actions</th></tr></thead>
                     <tbody>
                     @forelse($salesReturns as $i => $sr)
                         <tr>
@@ -214,9 +243,13 @@
                             <td>@if($sr->customer)<span style="font-weight:500;">{{ $sr->customer->name }}</span>@else —@endif</td>
                             <td><span class="badge badge-{{ ($sr->payment_mode ?? 'CASH') === 'CASH' ? 'success' : 'info' }}">{{ $sr->payment_mode ?? 'CASH' }}</span></td>
                             <td class="text-right" style="font-weight:700; color:#fd79a8;">{{ number_format($sr->total, 2) }}</td>
+                            <td class="text-right">
+                                <a href="{{ route('modules.transactions.sales-returns.generate', $sr) }}" class="btn btn-sm btn-outline-primary">Generate</a>
+                                <a href="{{ route('modules.transactions.sales-returns.print', $sr) }}" class="btn btn-sm btn-outline-success" target="_blank">Print</a>
+                            </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="text-center text-muted py-4"><i class="fas fa-exchange-alt fa-2x mb-2 d-block" style="opacity:0.3;"></i>No sales returns yet</td></tr>
+                        <tr><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-exchange-alt fa-2x mb-2 d-block" style="opacity:0.3;"></i>No sales returns yet</td></tr>
                     @endforelse
                     </tbody>
                 </table>
