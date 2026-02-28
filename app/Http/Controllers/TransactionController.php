@@ -13,6 +13,7 @@ use App\Models\PurchaseReturn;
 use App\Models\PurchaseReturnItem;
 use App\Models\SalesReturn;
 use App\Models\SalesReturnItem;
+use App\Models\Setting;
 use App\Services\InvoiceNumberService;
 use App\Services\InvoiceTemplateBindingService;
 use App\Services\PurchaseNumberService;
@@ -277,8 +278,6 @@ class TransactionController extends Controller
 
                 $taxableAmount = 0;
                 $gstAmount = 0;
-                $cgstAmount = 0;
-                $sgstAmount = 0;
 
                 foreach ($validated['items'] as $i => $row) {
                     $quantity = (float) $row['quantity'];
@@ -292,11 +291,6 @@ class TransactionController extends Controller
 
                     $taxableAmount += $itemTaxable;
                     $gstAmount += $itemGst;
-                    if ($gstPercent) {
-                        $half = round($itemGst / 2, 2);
-                        $cgstAmount += $half;
-                        $sgstAmount += $half;
-                    }
 
                     InvoiceItem::create([
                         'invoice_id' => $invoice->id,
@@ -319,13 +313,18 @@ class TransactionController extends Controller
                 $netAmount = $taxableAmount + $gstAmount;
                 $advance = (float) ($validated['advance_amount'] ?? 0);
                 $balance = $netAmount - $advance;
+                $taxBreakup = $this->calculateTaxBreakup(
+                    $gstAmount,
+                    $validated['state'] ?? $customer?->state,
+                    $validated['place_of_supply'] ?? null
+                );
 
                 $invoice->update([
                     'taxable_amount' => $taxableAmount,
                     'gst_amount' => $gstAmount,
-                    'cgst_amount' => $cgstAmount,
-                    'sgst_amount' => $sgstAmount,
-                    'igst_amount' => 0,
+                    'cgst_amount' => $taxBreakup['cgst'],
+                    'sgst_amount' => $taxBreakup['sgst'],
+                    'igst_amount' => $taxBreakup['igst'],
                     'net_amount' => $netAmount,
                     'advance_amount' => $advance > 0 ? $advance : null,
                     'balance_amount' => $balance != 0 ? $balance : null,
@@ -680,6 +679,12 @@ class TransactionController extends Controller
      */
     protected function buildDocumentFromPurchase(Purchase $purchase): Invoice
     {
+        $taxBreakup = $this->calculateTaxBreakup(
+            (float) $purchase->gst_amount,
+            $purchase->state ?: $purchase->vendor?->state,
+            $purchase->place_of_supply
+        );
+
         $document = new Invoice([
             'invoice_number' => $purchase->doc_number,
             'doc_number' => $purchase->doc_number,
@@ -700,9 +705,9 @@ class TransactionController extends Controller
             'distance_km' => $purchase->distance_km,
             'taxable_amount' => $purchase->subtotal,
             'gst_amount' => $purchase->gst_amount,
-            'cgst_amount' => (float) $purchase->gst_amount / 2,
-            'sgst_amount' => (float) $purchase->gst_amount / 2,
-            'igst_amount' => 0,
+            'cgst_amount' => $taxBreakup['cgst'],
+            'sgst_amount' => $taxBreakup['sgst'],
+            'igst_amount' => $taxBreakup['igst'],
             'net_amount' => $purchase->total,
             'notes' => $purchase->notes,
         ]);
@@ -731,6 +736,12 @@ class TransactionController extends Controller
      */
     protected function buildDocumentFromPurchaseReturn(PurchaseReturn $purchaseReturn): Invoice
     {
+        $taxBreakup = $this->calculateTaxBreakup(
+            (float) $purchaseReturn->gst_amount,
+            $purchaseReturn->state ?: $purchaseReturn->vendor?->state,
+            $purchaseReturn->place_of_supply
+        );
+
         $document = new Invoice([
             'invoice_number' => $purchaseReturn->doc_number,
             'doc_number' => $purchaseReturn->doc_number,
@@ -751,9 +762,9 @@ class TransactionController extends Controller
             'distance_km' => $purchaseReturn->distance_km,
             'taxable_amount' => $purchaseReturn->subtotal,
             'gst_amount' => $purchaseReturn->gst_amount,
-            'cgst_amount' => (float) $purchaseReturn->gst_amount / 2,
-            'sgst_amount' => (float) $purchaseReturn->gst_amount / 2,
-            'igst_amount' => 0,
+            'cgst_amount' => $taxBreakup['cgst'],
+            'sgst_amount' => $taxBreakup['sgst'],
+            'igst_amount' => $taxBreakup['igst'],
             'net_amount' => $purchaseReturn->total,
             'notes' => $purchaseReturn->notes,
         ]);
@@ -782,6 +793,12 @@ class TransactionController extends Controller
      */
     protected function buildDocumentFromSalesReturn(SalesReturn $salesReturn): Invoice
     {
+        $taxBreakup = $this->calculateTaxBreakup(
+            (float) $salesReturn->gst_amount,
+            $salesReturn->state ?: $salesReturn->customer?->state,
+            $salesReturn->place_of_supply
+        );
+
         $document = new Invoice([
             'invoice_number' => $salesReturn->doc_number,
             'doc_number' => $salesReturn->doc_number,
@@ -802,9 +819,9 @@ class TransactionController extends Controller
             'distance_km' => $salesReturn->distance_km,
             'taxable_amount' => $salesReturn->subtotal,
             'gst_amount' => $salesReturn->gst_amount,
-            'cgst_amount' => (float) $salesReturn->gst_amount / 2,
-            'sgst_amount' => (float) $salesReturn->gst_amount / 2,
-            'igst_amount' => 0,
+            'cgst_amount' => $taxBreakup['cgst'],
+            'sgst_amount' => $taxBreakup['sgst'],
+            'igst_amount' => $taxBreakup['igst'],
             'net_amount' => $salesReturn->total,
             'notes' => $salesReturn->notes,
         ]);
@@ -826,5 +843,39 @@ class TransactionController extends Controller
         $document->setRelation('items', $items);
 
         return $document;
+    }
+
+    protected function calculateTaxBreakup(float $gstAmount, ?string $partyState, ?string $placeOfSupply = null): array
+    {
+        $gstAmount = round($gstAmount, 2);
+        if ($gstAmount <= 0) {
+            return ['cgst' => 0.0, 'sgst' => 0.0, 'igst' => 0.0];
+        }
+
+        $intraState = $this->isIntraStateSupply($partyState, $placeOfSupply);
+        if ($intraState === false) {
+            return ['cgst' => 0.0, 'sgst' => 0.0, 'igst' => $gstAmount];
+        }
+
+        $half = round($gstAmount / 2, 2);
+        return ['cgst' => $half, 'sgst' => $half, 'igst' => 0.0];
+    }
+
+    protected function isIntraStateSupply(?string $partyState, ?string $placeOfSupply = null): ?bool
+    {
+        $sellerState = $this->normalizeState((string) (Setting::get('seller_state', '') ?: (Auth::user()?->branch?->state ?? '')));
+        $buyerState = $this->normalizeState((string) ($placeOfSupply ?: $partyState ?: ''));
+
+        if ($sellerState === '' || $buyerState === '') {
+            return null;
+        }
+
+        return $sellerState === $buyerState;
+    }
+
+    protected function normalizeState(string $state): string
+    {
+        $state = strtolower(trim($state));
+        return preg_replace('/\s+/', ' ', $state) ?: '';
     }
 }

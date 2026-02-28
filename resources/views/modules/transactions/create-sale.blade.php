@@ -16,6 +16,15 @@
     .items-table th { font-size: 0.72rem; padding: 8px 10px !important; }
     .items-table td { font-size: 0.82rem; padding: 6px 10px !important; }
     .summary-pill { display: inline-block; min-width: 90px; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 0.88rem; text-align: center; }
+    .tax-meta-label { font-weight: 700; letter-spacing: 0.6px; }
+    .tax-meta-input { font-weight: 700; }
+    [data-theme="dark"] .tax-meta-label { color: #8ec5ff !important; }
+    [data-theme="light"] .tax-meta-label { color: #1d4ed8 !important; }
+    [data-theme="dark"] .tax-meta-input { color: #eaf4ff !important; background: rgba(102,126,234,0.18) !important; border-color: rgba(102,126,234,0.55) !important; }
+    [data-theme="light"] .tax-meta-input { color: #0f172a !important; background: rgba(37,99,235,0.08) !important; border-color: rgba(37,99,235,0.40) !important; }
+    .items-table td.tax-percent-cell { font-weight: 700; }
+    [data-theme="dark"] .items-table td.tax-percent-cell { color: #8ec5ff; }
+    [data-theme="light"] .items-table td.tax-percent-cell { color: #1d4ed8; }
 </style>
 @endpush
 
@@ -90,10 +99,10 @@
             <div class="row align-items-end">
                 <div class="col-md-3 form-group"><label>Product</label><select id="sale-add-product" class="form-control form-control-sm"><option value="">-- Select --</option>@foreach($products as $pr)<option value="{{ $pr->id }}" data-name="{{ $pr->name }}" data-hsn="{{ $pr->hsn_code }}" data-unit="{{ $pr->unit?->symbol }}" data-rate="{{ $pr->sale_rate }}" data-gst="{{ $pr->gst_percent }}">{{ $pr->name }}</option>@endforeach</select></div>
                 <div class="col-md-1 form-group"><label>Qty</label><input type="number" id="sale-add-qty" class="form-control form-control-sm" step="0.001" value="1"></div>
-                <div class="col-md-1 form-group"><label>Unit</label><input type="text" id="sale-add-unit" class="form-control form-control-sm" readonly></div>
-                <div class="col-md-1 form-group"><label>HSN</label><input type="text" id="sale-add-hsn" class="form-control form-control-sm" readonly></div>
+                <div class="col-md-1 form-group"><label class="tax-meta-label">Unit</label><input type="text" id="sale-add-unit" class="form-control form-control-sm tax-meta-input" readonly></div>
+                <div class="col-md-1 form-group"><label class="tax-meta-label">HSN</label><input type="text" id="sale-add-hsn" class="form-control form-control-sm tax-meta-input" readonly></div>
                 <div class="col-md-2 form-group"><label>Price</label><input type="number" id="sale-add-rate" class="form-control form-control-sm" step="0.01"></div>
-                <div class="col-md-1 form-group"><label>Tax %</label><input type="number" id="sale-add-gst" class="form-control form-control-sm" step="0.01"></div>
+                <div class="col-md-1 form-group"><label class="tax-meta-label">Tax %</label><input type="number" id="sale-add-gst" class="form-control form-control-sm tax-meta-input" step="0.01"></div>
                 <div class="col-md-1 form-group"><label>&nbsp;</label><button type="button" class="btn btn-success btn-sm btn-block" onclick="addRow()" style="font-weight:600;"><i class="fas fa-plus"></i> ADD</button></div>
             </div>
         </div>
@@ -203,7 +212,7 @@ function addRow() {
     tr.onclick = function(e){ if(e.target.closest('button') || tr.getAttribute('data-editing') === '1') return; enableInlineEdit(tr, idx); };
     tr.innerHTML = '<td style="font-weight:500;">'+pname+'</td><td class="text-right">'+q+'</td><td>'+unit.value+'</td><td>'+hsn.value+'</td>'
         +'<td class="text-right">'+r.toFixed(2)+'</td><td class="text-right" style="color:#667eea;font-weight:600;">'+amount.toFixed(2)+'</td>'
-        +'<td>'+g+'%</td><td class="text-right" style="color:#ff7675;">'+tax.toFixed(2)+'</td>'
+        +'<td class="tax-percent-cell">'+g+'%</td><td class="text-right" style="color:#ff7675;">'+tax.toFixed(2)+'</td>'
         +'<td class="text-right" style="font-weight:700; color:#55efc4;">'+net.toFixed(2)+'</td>'
         +'<td><button type="button" class="btn btn-danger btn-sm py-0 px-1" onclick="removeRow(this,'+idx+')"><i class="fas fa-trash" style="font-size:0.7rem;"></i></button></td>';
     tbody.appendChild(tr);
@@ -303,7 +312,7 @@ function enableInlineEdit(tr, idx) {
     var gst = parseFloat(String(cells[6].textContent || '').replace('%','')) || 0;
     cells[1].innerHTML = '<input type="number" class="form-control form-control-sm" id="edit-qty-'+idx+'" value="'+qty+'" step="0.001" min="0.001">';
     cells[4].innerHTML = '<input type="number" class="form-control form-control-sm" id="edit-rate-'+idx+'" value="'+rate+'" step="0.01" min="0">';
-    cells[6].innerHTML = '<input type="number" class="form-control form-control-sm" id="edit-gst-'+idx+'" value="'+gst+'" step="0.01" min="0" max="100">';
+    cells[6].innerHTML = '<input type="number" class="form-control form-control-sm tax-meta-input" id="edit-gst-'+idx+'" value="'+gst+'" step="0.01" min="0" max="100">';
     cells[9].innerHTML = '<button type="button" class="btn btn-success btn-sm py-0 px-2 mr-1" onclick="saveInlineEdit('+idx+')"><i class="fas fa-check"></i></button><button type="button" class="btn btn-secondary btn-sm py-0 px-2" onclick="cancelInlineEdit('+idx+')"><i class="fas fa-times"></i></button>';
 }
 
