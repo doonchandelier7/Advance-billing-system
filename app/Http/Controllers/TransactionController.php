@@ -43,7 +43,8 @@ class TransactionController extends Controller
     {
         $customers = Customer::where('is_active', true)->orderBy('name')->get();
         $products = Product::with('unit')->where('is_active', true)->orderBy('name')->get();
-        return view('modules.transactions.create-sale', compact('customers', 'products'));
+        $sellerState = $this->normalizeState((string) (Setting::get('seller_state', '') ?: (Auth::user()?->branch?->state ?? '')));
+        return view('modules.transactions.create-sale', compact('customers', 'products', 'sellerState'));
     }
 
     /**

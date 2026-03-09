@@ -172,6 +172,7 @@ function addRow() {
     hDiv.innerHTML='<input type="hidden" name="items['+idx+'][product_id]" value="'+prod.value+'"><input type="hidden" name="items['+idx+'][quantity]" value="'+q+'"><input type="hidden" name="items['+idx+'][rate]" value="'+r+'"><input type="hidden" name="items['+idx+'][gst_percent]" value="'+g+'">';
     hc.appendChild(hDiv);
     prod.selectedIndex=0; qty.value=1; unit.value=''; hsn.value=''; rate.value=''; gst.value='';
+    if ($('#add-product').data('select2')) $('#add-product').val(null).trigger('change');
     updateTotals();
 }
 function removeRow(btn,idx){ btn.closest('tr').remove(); var h=document.querySelector('#hidden-items div[data-idx="'+idx+'"]'); if(h)h.remove(); updateTotals(); }
@@ -184,5 +185,14 @@ function resetForm(){ document.getElementById('prForm').reset(); document.queryS
 document.getElementById('prForm').addEventListener('submit', function(e){ if(document.getElementById('hidden-items').children.length===0){ e.preventDefault(); alert('Please add at least one item before saving.'); } });
 
 (function restoreOldItems(){ var oldItems=@json(old('items', [])); if(!Array.isArray(oldItems) || oldItems.length===0) return; oldItems.forEach(function(item){ if(!item || !item.product_id) return; var prod=document.getElementById('add-product'); prod.value=String(item.product_id); var o=prod.options[prod.selectedIndex]; document.getElementById('add-unit').value=(o&&o.dataset.unit)||''; document.getElementById('add-hsn').value=(o&&o.dataset.hsn)||''; document.getElementById('add-qty').value=item.quantity||1; document.getElementById('add-rate').value=item.rate||''; document.getElementById('add-gst').value=item.gst_percent ?? ((o&&o.dataset.gst)||0); addRow(); }); })();
+
+$(function(){
+    setTimeout(function(){
+        if (typeof $.fn.select2 !== 'undefined') {
+            $('#pr-vendor').select2({ width: '100%', minimumResultsForSearch: 0, placeholder: 'Search vendor...' });
+            $('#add-product').select2({ width: '100%', minimumResultsForSearch: 0, placeholder: 'Search product...' });
+        }
+    }, 50);
+});
 </script>
 @endsection

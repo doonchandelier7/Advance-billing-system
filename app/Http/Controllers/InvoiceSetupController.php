@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\InvoiceTemplate;
 use App\Models\Product;
+use App\Models\Setting;
 use App\Models\Vendor;
 use App\Services\InvoiceNumberService;
 use App\Services\InvoiceTemplateBindingService;
@@ -14,6 +15,7 @@ use App\Services\StockService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -117,7 +119,14 @@ class InvoiceSetupController extends Controller
         $products = Product::with('unit')->where('is_active', true)->orderBy('name')->get();
         $templates = InvoiceTemplate::where('is_active', true)->orderBy('type')->orderBy('name')->get();
         $types = InvoiceTemplate::types();
-        return view('invoices.create', compact('customers', 'vendors', 'products', 'templates', 'types'));
+        $sellerState = $this->normalizeState((string) (Setting::get('seller_state', '') ?: (Auth::user()?->branch?->state ?? '')));
+        return view('invoices.create', compact('customers', 'vendors', 'products', 'templates', 'types', 'sellerState'));
+    }
+
+    protected function normalizeState(string $state): string
+    {
+        $state = strtolower(trim($state));
+        return preg_replace('/\s+/', ' ', $state) ?: '';
     }
 
     /**

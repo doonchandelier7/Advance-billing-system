@@ -13,22 +13,32 @@
             .no-print-bar button { padding: 10px 24px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; }
             .no-print-bar .btn-print { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
             .no-print-bar .btn-back { background: #e0e0e0; color: #333; }
+            .invoice-copy { margin-bottom: 40px; padding-bottom: 40px; border-bottom: 2px dashed #ccc; }
         }
         @media print {
             body { padding: 0; margin: 0; }
             .no-print-bar { display: none !important; }
+            .invoice-copy { page-break-after: always; margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
+            .invoice-copy:last-child { page-break-after: auto; }
         }
         .invoice-rendered { line-height: 1.5; }
         .invoice-rendered table { border-collapse: collapse; }
+        .copy-label { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; padding: 6px 12px; display: inline-block; border: 2px solid #333; }
+        .copy-label.original { background: #fff; color: #000; }
+        .copy-label.duplicate { background: #f0f0f0; color: #333; }
+        .copy-label.triplicate { background: #e8e8e8; color: #444; }
     </style>
 </head>
 <body>
     <div class="no-print-bar">
         <button class="btn-back" onclick="window.history.back()"><i class="fas fa-arrow-left"></i> Back</button>
-        <button class="btn-print" onclick="window.print()">Print / Save as PDF</button>
+        <button class="btn-print" onclick="window.print()">Print / Save as PDF (3 Copies)</button>
     </div>
 
-    <div class="invoice-rendered">
+    @foreach(['Original' => 'original', 'Duplicate' => 'duplicate', 'Triplicate' => 'triplicate'] as $label => $class)
+    <div class="invoice-copy">
+        <div class="copy-label {{ $class }}">{{ $label }}</div>
+        <div class="invoice-rendered">
         @if($renderedHtml)
             {!! $renderedHtml !!}
         @else
@@ -150,7 +160,9 @@
             </table>
             <p><strong>Net Amount:</strong> {{ number_format($invoice->net_amount, 2) }}</p>
         @endif
+        </div>
     </div>
+    @endforeach
 
     <script>
         @if($renderedHtml)

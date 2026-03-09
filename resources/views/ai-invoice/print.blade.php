@@ -14,11 +14,20 @@
         .text-right { text-align: right; }
         .totals { margin-top: 24px; }
         .totals table { width: 320px; margin-left: auto; }
-        @media print { body { padding: 0; } .no-print { display: none; } }
+        @media print { body { padding: 0; } .no-print { display: none; } .invoice-copy { page-break-after: always; } .invoice-copy:last-child { page-break-after: auto; } }
+        @media screen { .invoice-copy { margin-bottom: 40px; padding-bottom: 40px; border-bottom: 2px dashed #ccc; } }
+        .copy-label { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; padding: 6px 12px; display: inline-block; border: 2px solid #333; }
+        .copy-label.original { background: #fff; color: #000; }
+        .copy-label.duplicate { background: #f0f0f0; color: #333; }
+        .copy-label.triplicate { background: #e8e8e8; color: #444; }
     </style>
 </head>
 <body>
-    <p class="no-print"><a href="{{ route('ai-invoice.index') }}">← Back to AI Invoice</a> &nbsp; <button onclick="window.print()">Print / Save as PDF</button></p>
+    <p class="no-print"><a href="{{ route('ai-invoice.index') }}">← Back to AI Invoice</a> &nbsp; <button onclick="window.print()">Print / Save as PDF (3 Copies)</button></p>
+
+    @foreach(['Original' => 'original', 'Duplicate' => 'duplicate', 'Triplicate' => 'triplicate'] as $label => $class)
+    <div class="invoice-copy">
+        <div class="copy-label {{ $class }}">{{ $label }}</div>
     <h1>{{ config('app.name') }} — Invoice</h1>
     <table class="header-table">
         <tr><td><strong>Document Type</strong></td><td>{{ $invoice->document_type ?? '—' }}</td></tr>
@@ -92,5 +101,7 @@
             @if($invoice->balance_amount !== null)<tr><td>Balance</td><td class="text-right">{{ number_format($invoice->balance_amount, 2) }}</td></tr>@endif
         </table>
     </div>
+    </div>
+    @endforeach
 </body>
 </html>

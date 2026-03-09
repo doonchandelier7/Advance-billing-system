@@ -219,7 +219,7 @@
                 <div class="col-md-2 form-group"><label>Transport</label><input type="text" name="transport_name" class="form-control form-control-sm" placeholder="Transport name"></div>
                 <div class="col-md-2 form-group"><label>Vehicle No.</label><input type="text" name="vehicle_number" class="form-control form-control-sm" placeholder="MH12AB1234" style="text-transform:uppercase;"></div>
                 <div class="col-md-2 form-group"><label>Driver Name</label><input type="text" name="driver_name" class="form-control form-control-sm" placeholder="Driver"></div>
-                <div class="col-md-2 form-group"><label>Place of Supply</label><input type="text" name="place_of_supply" class="form-control form-control-sm" placeholder="Place"></div>
+                <div class="col-md-2 form-group"><label>Place of Supply</label><input type="text" name="place_of_supply" id="inv-place-of-supply" class="form-control form-control-sm" placeholder="State for IGST"></div>
             </div>
             <div class="row mt-1">
                 <div class="col-md-3 form-group"><label>E-Way Bill No.</label><input type="text" name="eway_bill_no" class="form-control form-control-sm" placeholder="E-Way Bill Number"></div>
@@ -269,7 +269,9 @@
                         <th class="text-right">Rate (&#8377;)</th>
                         <th class="text-right">Taxable</th>
                         <th class="text-right">Tax%</th>
-                        <th class="text-right">GST Amt</th>
+                        <th class="text-right">CGST</th>
+                        <th class="text-right">SGST</th>
+                        <th class="text-right">IGST</th>
                         <th class="text-right">Total (&#8377;)</th>
                         <th style="width:40px;"></th>
                     </tr>
@@ -308,6 +310,21 @@
 <script>
 var items = [];
 var searchTimer = null;
+var sellerState = @json($sellerState ?? '');
+
+function isIntraState() {
+    var buyerState = (document.getElementById('inv-place-of-supply')?.value || document.getElementById('inv-state')?.value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    if (!sellerState || !buyerState) return true;
+    return sellerState === buyerState;
+}
+
+function splitGst(gstAmt, intraState) {
+    if (intraState) {
+        var half = Math.round((gstAmt / 2) * 100) / 100;
+        return { cgst: half, sgst: Math.round((gstAmt - half) * 100) / 100, igst: 0 };
+    }
+    return { cgst: 0, sgst: 0, igst: gstAmt };
+}
 
 // ──────────── Autofill fields list ────────────
 var autoFillIds = ['inv-state','inv-district','inv-city','inv-gstin','inv-bank-name','inv-bank-account','inv-bank-branch','inv-bank-ifsc'];
@@ -414,6 +431,12 @@ initLocationAC('inv-city', 'cityDropdown', 'cities',
     },
     function() { return { state: document.getElementById('inv-state').value }; }
 );
+
+// Recalculate CGST/SGST/IGST when Place of Supply or State changes
+['inv-place-of-supply','inv-state'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('input', function(){ renderTable(); });
+});
 
 // ──────────── Customer dropdown auto-fill ────────────
 document.getElementById('inv-customer').addEventListener('change', function() {
@@ -545,6 +568,7 @@ function addRow() {
 
     var taxable = Math.round(qty * rate * 100) / 100;
     var gstAmt = gst ? Math.round(taxable * (gst / 100) * 100) / 100 : 0;
+    var split = splitGst(gstAmt, isIntraState());
 
     items.push({
         product_id: productSelect.value,
@@ -553,11 +577,13 @@ function addRow() {
         unit: document.getElementById('inv-add-unit').value,
         qty: qty, rate: rate, gst: gst,
         taxable: taxable, gstAmt: gstAmt, amount: taxable + gstAmt,
+        cgst: split.cgst, sgst: split.sgst, igst: split.igst,
     });
     renderTable();
     productSelect.value = '';
     document.getElementById('inv-add-qty').value = 1;
     ['inv-add-unit','inv-add-hsn','inv-add-rate','inv-add-gst'].forEach(function(id) { document.getElementById(id).value = ''; });
+    if ($('#inv-add-product').data('select2')) $('#inv-add-product').val(null).trigger('change');
 }
 
 function removeRow(idx) { items.splice(idx, 1); renderTable(); }
@@ -570,6 +596,8 @@ function renderTable() {
         sumTaxable += item.taxable;
         sumGst += item.gstAmt;
         sumTotal += item.amount;
+        var s = splitGst(item.gstAmt || 0, isIntraState());
+        var cgst = s.cgst, sgst = s.sgst, igst = s.igst;
         tbody.innerHTML += '<tr>' +
             '<td style="font-weight:600; color:var(--text-muted);">' + (i + 1) + '</td>' +
             '<td><strong>' + escHtml(item.product_name) + '</strong>' +
@@ -584,7 +612,9 @@ function renderTable() {
             '<td class="text-right" style="font-family:monospace;">' + item.rate.toFixed(2) + '</td>' +
             '<td class="text-right" style="color:#667eea; font-weight:600;">\u20B9' + item.taxable.toFixed(2) + '</td>' +
             '<td class="text-right">' + (item.gst ? item.gst.toFixed(1) + '%' : '-') + '</td>' +
-            '<td class="text-right">' + (item.gstAmt > 0 ? '\u20B9' + item.gstAmt.toFixed(2) : '-') + '</td>' +
+            '<td class="text-right" style="color:#0984e3;">' + (cgst > 0 ? '\u20B9' + cgst.toFixed(2) : '-') + '</td>' +
+            '<td class="text-right" style="color:#0984e3;">' + (sgst > 0 ? '\u20B9' + sgst.toFixed(2) : '-') + '</td>' +
+            '<td class="text-right" style="color:#e17055;">' + (igst > 0 ? '\u20B9' + igst.toFixed(2) : '-') + '</td>' +
             '<td class="text-right" style="font-weight:700; font-size:0.92rem;">\u20B9' + item.amount.toFixed(2) + '</td>' +
             '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(' + i + ')" style="border-radius:6px;"><i class="fas fa-trash-alt" style="font-size:0.7rem;"></i></button></td>' +
         '</tr>';
@@ -600,6 +630,16 @@ function escHtml(s) { var d = document.createElement('div'); d.textContent = s |
 document.getElementById('invoiceForm').addEventListener('submit', function(e) {
     if (items.length === 0) { e.preventDefault(); alert('Please add at least one line item.'); return; }
     if (!document.querySelector('input[name="template_id"]:checked')) { e.preventDefault(); alert('Please select a template.'); return; }
+});
+
+// Select2 - searchable Customer & Product
+$(function(){
+    setTimeout(function(){
+        if (typeof $.fn.select2 !== 'undefined') {
+            $('#inv-customer').select2({ width: '100%', minimumResultsForSearch: 0, placeholder: 'Search customer...' });
+            $('#inv-add-product').select2({ width: '100%', minimumResultsForSearch: 0, placeholder: 'Search product...' });
+        }
+    }, 50);
 });
 </script>
 @endpush

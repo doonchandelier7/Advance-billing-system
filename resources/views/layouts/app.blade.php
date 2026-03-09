@@ -705,6 +705,16 @@
         [data-theme="light"] [style*="color:#ff7675"] { color: #dc2626 !important; }
         [data-theme="light"] [style*="color:#74b9ff"] { color: #2563eb !important; }
     </style>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
+    <style>
+        .select2-container--default .select2-selection--single { background: var(--bg-input)!important; border-color: var(--border-input)!important; color: var(--text-primary)!important; min-height: 31px; }
+        .select2-container--default .select2-selection--single .select2-selection__rendered { color: var(--text-primary)!important; }
+        .select2-container--default .select2-selection--single .select2-selection__arrow { height: 29px; }
+        .select2-dropdown { background: var(--bg-card)!important; border-color: var(--border-color)!important; }
+        .select2-container--default .select2-search--dropdown .select2-search__field { background: var(--bg-input)!important; border-color: var(--border-input)!important; color: var(--text-primary)!important; }
+        .select2-results__option { color: var(--text-primary)!important; }
+        .select2-container--default .select2-results__option--highlighted[aria-selected] { background: #667eea!important; color: #fff!important; }
+    </style>
     @stack('styles')
 </head>
 <body class="dark-mode layout-fixed layout-navbar-fixed sidebar-mini" style="height:auto;" data-theme="dark">
@@ -844,6 +854,7 @@
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
 
 {{-- Theme Toggle Script --}}
 <script>

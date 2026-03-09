@@ -76,7 +76,7 @@
                 <div class="col-md-2 form-group"><label>Driver Name</label><input type="text" name="driver_name" class="form-control form-control-sm" value="{{ old('driver_name') }}"></div>
                 <div class="col-md-2 form-group"><label>Vehicle</label><input type="text" name="vehicle_number" class="form-control form-control-sm" value="{{ old('vehicle_number') }}"></div>
                 <div class="col-md-2 form-group"><label>Transport</label><input type="text" name="transport_name" class="form-control form-control-sm" value="{{ old('transport_name') }}"></div>
-                <div class="col-md-2 form-group"><label>Place of Supply</label><input type="text" name="place_of_supply" class="form-control form-control-sm" value="{{ old('place_of_supply') }}"></div>
+                <div class="col-md-2 form-group"><label>Place of Supply</label><input type="text" name="place_of_supply" id="sale-place-of-supply" class="form-control form-control-sm" value="{{ old('place_of_supply') }}" placeholder="State for IGST"></div>
             </div>
         </div>
 
@@ -109,11 +109,11 @@
 
         <div class="items-scroll mt-3">
             <table class="table table-hover items-table mb-0" id="items-table">
-                <thead><tr><th>Description</th><th class="text-right">Qty</th><th>Unit</th><th>HSN</th><th class="text-right">Rate</th><th class="text-right">Taxable (Qty×Rate)</th><th>Tax%</th><th class="text-right">GST Amt</th><th class="text-right">Total</th><th></th></tr></thead>
+                <thead><tr><th>Description</th><th class="text-right">Qty</th><th>Unit</th><th>HSN</th><th class="text-right">Rate</th><th class="text-right">Taxable (Qty×Rate)</th><th>Tax%</th><th class="text-right">CGST</th><th class="text-right">SGST</th><th class="text-right">IGST</th><th class="text-right">Total</th><th></th></tr></thead>
                 <tbody></tbody>
                 <tfoot>
                     <tr style="font-weight:700; background:rgba(102,126,234,0.08);">
-                        <td colspan="10">
+                        <td colspan="12">
                             Product Total: <span id="product-total-count">0</span> | Total Qty: <span id="product-total-qty">0.000</span>
                         </td>
                     </tr>
@@ -172,6 +172,50 @@
 
 <script>
 var itemCounter = 0;
+var sellerState = @json($sellerState ?? '');
+
+function isIntraState() {
+    var buyerState = (document.getElementById('sale-place-of-supply')?.value || document.getElementById('sale-state')?.value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    if (!sellerState || !buyerState) return true; // default intra-state (CGST+SGST)
+    return sellerState === buyerState;
+}
+
+function splitGst(gstAmt, intraState) {
+    if (intraState) {
+        var half = Math.round((gstAmt / 2) * 100) / 100;
+        return { cgst: half, sgst: Math.round((gstAmt - half) * 100) / 100, igst: 0 };
+    }
+    return { cgst: 0, sgst: 0, igst: gstAmt };
+}
+
+// Recalculate CGST/SGST/IGST when Place of Supply or State changes
+['sale-place-of-supply','sale-state'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('input', function(){ recalcAllRowsTaxSplit(); });
+});
+
+function recalcAllRowsTaxSplit() {
+    var rows = document.querySelectorAll('#items-table tbody tr');
+    rows.forEach(function(tr){
+        var idx = tr.getAttribute('data-idx');
+        var hDiv = document.querySelector('#hidden-items div[data-idx="'+idx+'"]');
+        if (!hDiv) return;
+        var qty = parseFloat(hDiv.querySelector('input[name="items['+idx+'][quantity]"]')?.value) || 0;
+        var rate = parseFloat(hDiv.querySelector('input[name="items['+idx+'][rate]"]')?.value) || 0;
+        var gst = parseFloat(hDiv.querySelector('input[name="items['+idx+'][gst_percent]"]')?.value) || 0;
+        var taxable = Math.round(qty * rate * 100) / 100;
+        var tax = gst > 0 ? Math.round(taxable * (gst/100) * 100) / 100 : 0;
+        var split = splitGst(tax, isIntraState());
+        var cells = tr.querySelectorAll('td');
+        if (cells.length >= 11) {
+            cells[7].textContent = split.cgst > 0 ? split.cgst.toFixed(2) : '-';
+            cells[8].textContent = split.sgst > 0 ? split.sgst.toFixed(2) : '-';
+            cells[9].textContent = split.igst > 0 ? split.igst.toFixed(2) : '-';
+            cells[10].textContent = (taxable + tax).toFixed(2);
+        }
+    });
+    updateTotals();
+}
 
 // Auto-fill party from customer select
 document.getElementById('sale-customer').addEventListener('change', function(){
@@ -204,6 +248,7 @@ function addRow() {
     var amount = Math.round(q * r * 100) / 100;
     var tax = g > 0 ? Math.round(amount * (g/100) * 100) / 100 : 0;
     var net = amount + tax;
+    var split = splitGst(tax, isIntraState());
     var idx = itemCounter++;
     var pname = prod.options[prod.selectedIndex].text;
     var tbody = document.querySelector('#items-table tbody');
@@ -212,7 +257,10 @@ function addRow() {
     tr.onclick = function(e){ if(e.target.closest('button') || tr.getAttribute('data-editing') === '1') return; enableInlineEdit(tr, idx); };
     tr.innerHTML = '<td style="font-weight:500;">'+pname+'</td><td class="text-right">'+q+'</td><td>'+unit.value+'</td><td>'+hsn.value+'</td>'
         +'<td class="text-right">'+r.toFixed(2)+'</td><td class="text-right" style="color:#667eea;font-weight:600;">'+amount.toFixed(2)+'</td>'
-        +'<td class="tax-percent-cell">'+g+'%</td><td class="text-right" style="color:#ff7675;">'+tax.toFixed(2)+'</td>'
+        +'<td class="tax-percent-cell">'+g+'%</td>'
+        +'<td class="text-right" style="color:#0984e3;">'+(split.cgst>0?split.cgst.toFixed(2):'-')+'</td>'
+        +'<td class="text-right" style="color:#0984e3;">'+(split.sgst>0?split.sgst.toFixed(2):'-')+'</td>'
+        +'<td class="text-right" style="color:#e17055;">'+(split.igst>0?split.igst.toFixed(2):'-')+'</td>'
         +'<td class="text-right" style="font-weight:700; color:#55efc4;">'+net.toFixed(2)+'</td>'
         +'<td><button type="button" class="btn btn-danger btn-sm py-0 px-1" onclick="removeRow(this,'+idx+')"><i class="fas fa-trash" style="font-size:0.7rem;"></i></button></td>';
     tbody.appendChild(tr);
@@ -221,6 +269,7 @@ function addRow() {
     hDiv.innerHTML = '<input type="hidden" name="items['+idx+'][product_id]" value="'+prod.value+'"><input type="hidden" name="items['+idx+'][quantity]" value="'+q+'"><input type="hidden" name="items['+idx+'][rate]" value="'+r+'"><input type="hidden" name="items['+idx+'][gst_percent]" value="'+g+'">';
     hc.appendChild(hDiv);
     prod.selectedIndex = 0; qty.value = 1; unit.value = ''; hsn.value = ''; rate.value = ''; gst.value = '';
+    if ($('#sale-add-product').data('select2')) $('#sale-add-product').val(null).trigger('change');
     updateTotals();
 }
 
@@ -235,21 +284,25 @@ function updateTotals() {
     var rows = document.querySelectorAll('#items-table tbody tr');
     var count = rows.length, totalAmt = 0, totalTax = 0, totalNet = 0, totalQty = 0;
     var slabTotals = {};
+    var intra = isIntraState();
     rows.forEach(function(tr){
         var cells = tr.querySelectorAll('td');
         totalQty += parseFloat(cells[1].textContent) || 0;
         var taxable = parseFloat(cells[5].textContent) || 0;
-        var gstAmount = parseFloat(cells[7].textContent) || 0;
-        var gross = parseFloat(cells[8].textContent) || 0;
+        var cgst = parseFloat(String(cells[7].textContent || '').replace('-','0')) || 0;
+        var sgst = parseFloat(String(cells[8].textContent || '').replace('-','0')) || 0;
+        var igst = parseFloat(String(cells[9].textContent || '').replace('-','0')) || 0;
+        var gstAmount = cgst + sgst + igst;
+        var gross = parseFloat(cells[10].textContent) || 0;
         var gstPercent = parseFloat(String(cells[6].textContent || '').replace('%','')) || 0;
         var slabKey = String(gstPercent % 1 === 0 ? gstPercent.toFixed(0) : gstPercent.toFixed(2));
         if (!slabTotals[slabKey]) {
             slabTotals[slabKey] = { taxable: 0, cgst: 0, sgst: 0, igst: 0, tax: 0, gross: 0 };
         }
-        var half = gstAmount / 2;
         slabTotals[slabKey].taxable += taxable;
-        slabTotals[slabKey].cgst += half;
-        slabTotals[slabKey].sgst += half;
+        slabTotals[slabKey].cgst += cgst;
+        slabTotals[slabKey].sgst += sgst;
+        slabTotals[slabKey].igst += igst;
         slabTotals[slabKey].tax += gstAmount;
         slabTotals[slabKey].gross += gross;
         totalAmt += taxable;
@@ -313,7 +366,7 @@ function enableInlineEdit(tr, idx) {
     cells[1].innerHTML = '<input type="number" class="form-control form-control-sm" id="edit-qty-'+idx+'" value="'+qty+'" step="0.001" min="0.001">';
     cells[4].innerHTML = '<input type="number" class="form-control form-control-sm" id="edit-rate-'+idx+'" value="'+rate+'" step="0.01" min="0">';
     cells[6].innerHTML = '<input type="number" class="form-control form-control-sm tax-meta-input" id="edit-gst-'+idx+'" value="'+gst+'" step="0.01" min="0" max="100">';
-    cells[9].innerHTML = '<button type="button" class="btn btn-success btn-sm py-0 px-2 mr-1" onclick="saveInlineEdit('+idx+')"><i class="fas fa-check"></i></button><button type="button" class="btn btn-secondary btn-sm py-0 px-2" onclick="cancelInlineEdit('+idx+')"><i class="fas fa-times"></i></button>';
+    cells[11].innerHTML = '<button type="button" class="btn btn-success btn-sm py-0 px-2 mr-1" onclick="saveInlineEdit('+idx+')"><i class="fas fa-check"></i></button><button type="button" class="btn btn-secondary btn-sm py-0 px-2" onclick="cancelInlineEdit('+idx+')"><i class="fas fa-times"></i></button>';
 }
 
 function saveInlineEdit(idx) {
@@ -326,14 +379,17 @@ function saveInlineEdit(idx) {
     var taxable = Math.round(qty * rate * 100) / 100;
     var tax = gst > 0 ? Math.round(taxable * (gst/100) * 100) / 100 : 0;
     var net = taxable + tax;
+    var split = splitGst(tax, isIntraState());
     var cells = tr.querySelectorAll('td');
     cells[1].textContent = qty.toString();
     cells[4].textContent = rate.toFixed(2);
     cells[5].textContent = taxable.toFixed(2);
     cells[6].textContent = gst + '%';
-    cells[7].textContent = tax.toFixed(2);
-    cells[8].textContent = net.toFixed(2);
-    cells[9].innerHTML = '<button type="button" class="btn btn-danger btn-sm py-0 px-1" onclick="removeRow(this,'+idx+')"><i class="fas fa-trash" style="font-size:0.7rem;"></i></button>';
+    cells[7].textContent = split.cgst > 0 ? split.cgst.toFixed(2) : '-';
+    cells[8].textContent = split.sgst > 0 ? split.sgst.toFixed(2) : '-';
+    cells[9].textContent = split.igst > 0 ? split.igst.toFixed(2) : '-';
+    cells[10].textContent = net.toFixed(2);
+    cells[11].innerHTML = '<button type="button" class="btn btn-danger btn-sm py-0 px-1" onclick="removeRow(this,'+idx+')"><i class="fas fa-trash" style="font-size:0.7rem;"></i></button>';
     var hDiv = document.querySelector('#hidden-items div[data-idx="'+idx+'"]');
     if (hDiv) {
         hDiv.querySelector('input[name="items['+idx+'][quantity]"]').value = qty;
@@ -356,14 +412,17 @@ function cancelInlineEdit(idx) {
     var taxable = Math.round(qty * rate * 100) / 100;
     var tax = gst > 0 ? Math.round(taxable * (gst/100) * 100) / 100 : 0;
     var net = taxable + tax;
+    var split = splitGst(tax, isIntraState());
     var cells = tr.querySelectorAll('td');
     cells[1].textContent = qty.toString();
     cells[4].textContent = rate.toFixed(2);
     cells[5].textContent = taxable.toFixed(2);
     cells[6].textContent = gst + '%';
-    cells[7].textContent = tax.toFixed(2);
-    cells[8].textContent = net.toFixed(2);
-    cells[9].innerHTML = '<button type="button" class="btn btn-danger btn-sm py-0 px-1" onclick="removeRow(this,'+idx+')"><i class="fas fa-trash" style="font-size:0.7rem;"></i></button>';
+    cells[7].textContent = split.cgst > 0 ? split.cgst.toFixed(2) : '-';
+    cells[8].textContent = split.sgst > 0 ? split.sgst.toFixed(2) : '-';
+    cells[9].textContent = split.igst > 0 ? split.igst.toFixed(2) : '-';
+    cells[10].textContent = net.toFixed(2);
+    cells[11].innerHTML = '<button type="button" class="btn btn-danger btn-sm py-0 px-1" onclick="removeRow(this,'+idx+')"><i class="fas fa-trash" style="font-size:0.7rem;"></i></button>';
 }
 
 // Require at least 1 item
@@ -389,5 +448,15 @@ document.getElementById('saleForm').addEventListener('submit', function(e){
         addRow();
     });
 })();
+
+// Select2 - searchable Customer & Product (minimumResultsForSearch: 0 = always show search box)
+$(function(){
+    setTimeout(function(){
+        if (typeof $.fn.select2 !== 'undefined') {
+            $('#sale-customer').select2({ width: '100%', minimumResultsForSearch: 0, placeholder: 'Search customer...' });
+            $('#sale-add-product').select2({ width: '100%', minimumResultsForSearch: 0, placeholder: 'Search product...' });
+        }
+    }, 50);
+});
 </script>
 @endsection
