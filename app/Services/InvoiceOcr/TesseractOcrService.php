@@ -311,6 +311,10 @@ class TesseractOcrService implements InvoiceOcrServiceInterface
             'place_of_supply' => null,
             'eway_bill_no' => null,
             'distance_km' => null,
+            'vendor_bank_name' => null,
+            'vendor_bank_account_no' => null,
+            'vendor_bank_branch' => null,
+            'vendor_bank_ifsc' => null,
         ];
 
         // --- Document Type ---
@@ -596,6 +600,26 @@ class TesseractOcrService implements InvoiceOcrServiceInterface
             $header['distance_km'] = (int) $m[1];
         }
 
+        // --- Vendor/Seller Bank Details (for Add as Vendor) ---
+        if (preg_match('/(?:BANK\s*(?:ACCOUNT\s*)?NO\.?)\s*[:=\-]?\s*([\d\s]{10,24})/i', $text, $m)) {
+            $header['vendor_bank_account_no'] = preg_replace('/\s+/', '', trim($m[1]));
+        }
+        if (preg_match('/(?:BANK\s*NAME)\s*[:=\-]?\s*([A-Za-z0-9\s\,\-\&\.]+?)(?:\s*\n|BRANCH|ACCOUNT|IFSC|BALONGI|PUNB)/i', $text, $m)) {
+            $val = trim(preg_replace('/\s+/', ' ', $m[1]));
+            if (strlen($val) > 2 && strlen($val) < 100) {
+                $header['vendor_bank_name'] = $val;
+            }
+        }
+        if (preg_match('/(?:BRANCH)\s*[:=\-]?\s*([A-Za-z0-9\s\,\-\.\d]+?)(?:\s*\n|IFSC|ACCOUNT|DISTT)/i', $text, $m)) {
+            $val = trim(preg_replace('/\s+/', ' ', $m[1]));
+            if (strlen($val) > 2 && strlen($val) < 150) {
+                $header['vendor_bank_branch'] = $val;
+            }
+        }
+        if (preg_match('/(?:IFSC(?:\s*Code)?)\s*[:=\-]?\s*([A-Za-z0-9]{10,15})/i', $text, $m)) {
+            $header['vendor_bank_ifsc'] = strtoupper(trim($m[1]));
+        }
+
         return $header;
     }
 
@@ -665,6 +689,11 @@ class TesseractOcrService implements InvoiceOcrServiceInterface
             }
         }
 
+        // Post-process: fix items where product_name has concatenated data but hsn/unit/gst are empty
+        $items = array_map(function ($item) {
+            return $this->parseMangledProductNameIfNeeded($item);
+        }, $items);
+
         // Clean up: if many items were detected that seem like noise, filter out low-quality ones
         if (count($items) > 20) {
             $items = array_filter($items, fn($i) => ($i['confidence'] ?? 0) >= 0.4);
@@ -676,6 +705,57 @@ class TesseractOcrService implements InvoiceOcrServiceInterface
         }
 
         return $items;
+    }
+
+    /**
+     * If product_name contains concatenated HSN, UOM, amounts but those fields are empty, parse and fix.
+     * e.g. "PLY 18MM () 4412 25.0000PCS 14500.00 18.00 1305.00 1" -> extract name, HSN, UOM, GST.
+     */
+    protected function parseMangledProductNameIfNeeded(array $item): array
+    {
+        $name = $item['product_name'] ?? '';
+        if (strlen($name) < 15) {
+            return $item;
+        }
+        $hasHsn = ! empty($item['hsn_code']);
+        $hasUnit = ! empty($item['unit']);
+        $hasGst = isset($item['gst_percent']) && $item['gst_percent'] > 0;
+        if ($hasHsn && $hasUnit && $hasGst) {
+            return $item;
+        }
+
+        $parsed = ['hsn' => null, 'unit' => null, 'gst' => null, 'cleanName' => $name];
+
+        if (! $hasHsn && preg_match('/\s(\d{4})\s/', $name, $m)) {
+            $cand = (int) $m[1];
+            if ($cand >= 1000 && $cand <= 9999) {
+                $parsed['hsn'] = (string) $cand;
+            }
+        }
+        if (! $hasUnit && preg_match('/\d+\.?\d*(PCS|NOS|KG|KGS|LTR|LTRS|MTR|PSC|BAG|BOX|SET|PAIR|DZN|ROLL|UNIT|UNITS|FT|SQFT|SQM|RMT|CFT|CUM)/i', $name, $m)) {
+            $parsed['unit'] = strtoupper($m[1]);
+        }
+        if (! $hasGst && preg_match('/\b(5|12|18|28)\.?0*\b/', $name, $m)) {
+            $parsed['gst'] = (float) $m[1];
+        }
+        if ($parsed['hsn']) {
+            $item['hsn_code'] = $parsed['hsn'];
+            $parsed['cleanName'] = preg_replace('/\s*'.$parsed['hsn'].'\s*/', ' ', $parsed['cleanName']);
+        }
+        if ($parsed['unit']) {
+            $item['unit'] = $parsed['unit'];
+            $parsed['cleanName'] = preg_replace('/\d+\.?\d*'.$parsed['unit'].'\s*/i', ' ', $parsed['cleanName']);
+        }
+        if ($parsed['gst'] !== null) {
+            $item['gst_percent'] = $parsed['gst'];
+        }
+        $parsed['cleanName'] = preg_replace('/\s+\d+\.?\d*\s+\d+\.?\d*\s+\d+\.?\d*(?:\s+\d+\.?\d*)*\s*$/', '', $parsed['cleanName']);
+        $parsed['cleanName'] = trim(preg_replace('/\s+/', ' ', $parsed['cleanName']));
+        if (strlen($parsed['cleanName']) >= 2) {
+            $item['product_name'] = $parsed['cleanName'];
+        }
+
+        return $item;
     }
 
     /**
@@ -750,6 +830,39 @@ class TesseractOcrService implements InvoiceOcrServiceInterface
             }
             if (count($numericParts) >= 2 && count($textParts) >= 1) {
                 return $this->buildItemFromParts($textParts, $numericParts);
+            }
+        }
+
+        // Pattern 4b: Run-together "PLY 18MM () 4412 25.0000PCS 14500.00 18.00 1305.00 1" (qty+unit concatenated)
+        $uomPattern = 'PCS|NOS|KG|KGS|LTR|LTRS|MTR|PSC|BAG|BOX|SET|PAIR|DZN|ROLL|UNIT|UNITS|FT|SQFT|SQM|RMT|CFT|CUM';
+        if (preg_match('/^(.+?)\s+(\d{4})\s+(\d+\.?\d*)('.$uomPattern.')\s+(.+)$/i', $line, $m)) {
+            $desc = trim($m[1]);
+            $hsn = $m[2];
+            $qty = (float) $m[3];
+            $unit = strtoupper($m[4]);
+            $rest = trim($m[5]);
+            $nums = array_values(array_filter(array_map(fn($n) => $this->parseNumber($n), preg_split('/\s+/', $rest)), fn($n) => $n > 0));
+            if ($qty > 0 && count($nums) >= 1 && strlen($desc) > 2 && ! preg_match('/\b(Total|Sub|Grand|Taxable)\b/i', $desc)) {
+                $price = $nums[0];
+                $rate = round($price / $qty, 2);
+                $amount = end($nums);
+                $gstPct = null;
+                foreach ($nums as $n) {
+                    if ($n <= 100 && in_array((int) $n, [5, 12, 18, 28], true)) {
+                        $gstPct = $n;
+                        break;
+                    }
+                }
+                return [
+                    'product_name' => $desc,
+                    'hsn_code' => $hsn,
+                    'quantity' => $qty,
+                    'unit' => $unit,
+                    'rate' => $rate,
+                    'gst_percent' => $gstPct,
+                    'amount' => $amount,
+                    'confidence' => 0.75,
+                ];
             }
         }
 
@@ -867,9 +980,19 @@ class TesseractOcrService implements InvoiceOcrServiceInterface
             $item['amount'] = round($item['quantity'] * $item['rate'], 2);
         }
 
+        // Extract HSN from description if not yet set (4-8 digit code, not a price)
+        if (! $item['hsn_code'] && preg_match('/\b(\d{4,8})\b/', $description, $hm)) {
+            $cand = $hm[1];
+            $asFloat = (float) $cand;
+            if ($asFloat >= 1000 && $asFloat <= 99999999 && $asFloat == (int) $asFloat) {
+                $item['hsn_code'] = (string) (int) $cand;
+                $item['product_name'] = trim(preg_replace('/\s*\d{4,8}\s*/', ' ', $description));
+            }
+        }
+
         // Extract unit from description if not already found
         if (! $item['unit']) {
-            if (preg_match('/\b(PCS|NOS|KG|KGS|LTR|LTRS|MTR|MTRS|BAG|BAGS|BOX|BOXES|TON|TONS|SET|SETS|PAIR|PAIRS|DZN|PKT|PKTS|ROLL|ROLLS|UNIT|UNITS|FT|FEET|SQFT|SQMTR|PSC)\b/i', $description, $um)) {
+            if (preg_match('/\b(PCS|NOS|KG|KGS|LTR|LTRS|MTR|MTRS|BAG|BAGS|BOX|BOXES|TON|TONS|SET|SETS|PAIR|PAIRS|DZN|PKT|PKTS|ROLL|ROLLS|UNIT|UNITS|FT|FEET|SQFT|SQMTR|PSC|SQM|RMT|CFT|CUM)\b/i', $description, $um)) {
                 $item['unit'] = strtoupper($um[1]);
             }
         }

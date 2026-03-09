@@ -101,14 +101,18 @@ Return a single JSON object with this exact structure (use null for missing valu
     "driver_name": "string or null",
     "place_of_supply": "string or null",
     "eway_bill_no": "string or null",
-    "distance_km": number or null
+    "distance_km": number or null,
+    "vendor_bank_name": "string or null",
+    "vendor_bank_account_no": "string or null",
+    "vendor_bank_branch": "string or null",
+    "vendor_bank_ifsc": "string or null"
   },
   "items": [
     {
       "product_name": "string",
-      "hsn_code": "string or null",
+      "hsn_code": "string or null (HSN/SAC code e.g. 4412, 3824)",
       "quantity": number,
-      "unit": "string or null",
+      "unit": "string or null (UOM: PCS, KG, LTR, NOS, etc.)",
       "rate": number,
       "gst_percent": number or null,
       "amount": number,
@@ -131,6 +135,8 @@ Return a single JSON object with this exact structure (use null for missing valu
 }
 
 Extract every visible field. For amounts use numbers (no currency symbols). For dates use YYYY-MM-DD only.
+Always extract HSN code for each line item (4-8 digits). Always extract UOM/unit (PCS, KG, LTR, NOS, etc.) for each item.
+Extract bank details (BANK NAME, ACCOUNT NO, BRANCH, IFSC) when present for vendor/seller.
 PROMPT;
     }
 

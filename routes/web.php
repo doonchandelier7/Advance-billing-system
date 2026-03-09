@@ -102,6 +102,10 @@ Route::middleware('auth')->group(function () {
         Route::post('/upload', [AiInvoiceController::class, 'upload'])->name('upload');
         Route::get('/preview/{upload}', [AiInvoiceController::class, 'preview'])->name('preview')->whereNumber('upload');
         Route::post('/process', [AiInvoiceController::class, 'process'])->name('process');
+        Route::post('/check-lookup', [AiInvoiceController::class, 'checkLookup'])->name('check-lookup');
+        Route::post('/add-customer', [AiInvoiceController::class, 'addCustomer'])->name('add-customer');
+        Route::post('/add-vendor', [AiInvoiceController::class, 'addVendor'])->name('add-vendor');
+        Route::post('/add-product', [AiInvoiceController::class, 'addProduct'])->name('add-product');
         Route::post('/save', [AiInvoiceController::class, 'save'])->name('save');
         Route::get('/invoice/{invoice}/pdf', [AiInvoiceController::class, 'pdf'])->name('pdf');
         Route::get('/invoice/{invoice}/print', [AiInvoiceController::class, 'print'])->name('print');
