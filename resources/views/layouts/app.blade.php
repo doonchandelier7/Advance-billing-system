@@ -4,6 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" id="meta-theme-color" content="#1a1d21">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="{{ config('app.name') }}">
+    <link rel="manifest" href="{{ asset('manifest.json') }}">
+    <link rel="apple-touch-icon" href="{{ asset('icons/icon-192.png') }}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('icons/icon-192.png') }}">
     <title>@yield('title', 'Dashboard') — {{ config('app.name') }}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -820,7 +827,7 @@
                     </li>
                     <li class="nav-header">Account</li>
                     <li class="nav-item">
-                        <form action="{{ route('logout') }}" method="POST" class="d-inline w-100">@csrf
+                        <form action="{{ route('logout') }}" method="POST" class="d-inline w-100" data-offline-exclude>@csrf
                             <button type="submit" class="nav-link btn-logout-link border-0 w-100 text-left" style="cursor:pointer;">
                                 <i class="nav-icon fas fa-sign-out-alt"></i><p>Sign out</p>
                             </button>
@@ -891,6 +898,602 @@
             }
         });
     }
+})();
+</script>
+
+{{-- PWA Register + Install Button --}}
+<script>
+(function () {
+    if (!('serviceWorker' in navigator)) {
+        return;
+    }
+
+    var deferredPrompt = null;
+
+    function isStandaloneMode() {
+        return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+
+    function showInstallHelp() {
+        window.alert('Install is not available right now. Open browser menu and choose "Install app" or "Add to Home screen".');
+    }
+
+    function updateInstallButtonState(button) {
+        if (isStandaloneMode()) {
+            button.style.display = 'none';
+            return;
+        }
+
+        button.style.display = 'inline-block';
+        button.innerText = deferredPrompt ? 'Install App' : 'Install Guide';
+    }
+
+    window.addEventListener('load', function () {
+        navigator.serviceWorker.register("{{ asset('sw.js') }}", { updateViaCache: "none" }).catch(function (error) {
+            console.warn('Service worker registration failed:', error);
+        });
+
+        setTimeout(function () {
+            updateInstallButtonState(installButton);
+        }, 1500);
+    });
+
+    function ensureInstallButton() {
+        var existing = document.getElementById('pwaInstallButton');
+        if (existing) {
+            return existing;
+        }
+
+        var button = document.createElement('button');
+        button.id = 'pwaInstallButton';
+        button.type = 'button';
+        button.innerText = 'Install App';
+        button.style.position = 'fixed';
+        button.style.right = '16px';
+        button.style.bottom = '16px';
+        button.style.zIndex = '1060';
+        button.style.border = '0';
+        button.style.padding = '10px 14px';
+        button.style.borderRadius = '8px';
+        button.style.fontWeight = '700';
+        button.style.color = '#fff';
+        button.style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
+        button.style.boxShadow = '0 8px 22px rgba(102,126,234,0.35)';
+        button.style.display = 'inline-block';
+        document.body.appendChild(button);
+        return button;
+    }
+
+    var installButton = ensureInstallButton();
+    updateInstallButtonState(installButton);
+
+    window.addEventListener('beforeinstallprompt', function (event) {
+        event.preventDefault();
+        deferredPrompt = event;
+        updateInstallButtonState(installButton);
+    });
+
+    installButton.addEventListener('click', async function () {
+        if (isStandaloneMode()) {
+            return;
+        }
+
+        if (!deferredPrompt) {
+            showInstallHelp();
+            return;
+        }
+
+        deferredPrompt.prompt();
+        try {
+            await deferredPrompt.userChoice;
+        } catch (error) {
+            console.warn('Install prompt was dismissed:', error);
+        }
+        deferredPrompt = null;
+        updateInstallButtonState(installButton);
+    });
+
+    window.addEventListener('appinstalled', function () {
+        deferredPrompt = null;
+        updateInstallButtonState(installButton);
+    });
+})();
+</script>
+
+{{-- Offline Form Queue + Auto Sync --}}
+<script>
+(function () {
+    var STORAGE_KEY = 'abs-offline-request-queue-v2';
+    var statusPill = null;
+    var syncInProgress = false;
+
+    function readQueue() {
+        try {
+            var raw = localStorage.getItem(STORAGE_KEY);
+            var queue = raw ? JSON.parse(raw) : [];
+            return Array.isArray(queue) ? queue : [];
+        } catch (error) {
+            console.warn('Could not read offline queue:', error);
+            return [];
+        }
+    }
+
+    function writeQueue(queue) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
+    }
+
+    function queueCount() {
+        return readQueue().length;
+    }
+
+    function notify(message, type) {
+        if (!window.jQuery || !window.jQuery.fn || !window.jQuery.fn.toast) {
+            if (type === 'error') {
+                console.error(message);
+            } else {
+                console.log(message);
+            }
+            return;
+        }
+
+        var bg = '#17a2b8';
+        if (type === 'success') bg = '#28a745';
+        if (type === 'warning') bg = '#f39c12';
+        if (type === 'error') bg = '#dc3545';
+
+        window.jQuery(document).Toasts('create', {
+            title: 'Offline Sync',
+            body: message,
+            autohide: true,
+            delay: 3500,
+            class: 'bg-dark',
+            style: 'border-left:4px solid ' + bg + ';'
+        });
+    }
+
+    function ensureStatusPill() {
+        var existing = document.getElementById('offlineSyncStatus');
+        if (existing) {
+            return existing;
+        }
+
+        var pill = document.createElement('div');
+        pill.id = 'offlineSyncStatus';
+        pill.style.position = 'fixed';
+        pill.style.left = '16px';
+        pill.style.bottom = '16px';
+        pill.style.zIndex = '1060';
+        pill.style.padding = '8px 12px';
+        pill.style.borderRadius = '8px';
+        pill.style.fontSize = '12px';
+        pill.style.fontWeight = '600';
+        pill.style.boxShadow = '0 6px 18px rgba(0,0,0,0.2)';
+        pill.style.backdropFilter = 'blur(4px)';
+        document.body.appendChild(pill);
+        return pill;
+    }
+
+    function updateStatusPill() {
+        if (!statusPill) {
+            statusPill = ensureStatusPill();
+        }
+
+        var count = queueCount();
+        var online = navigator.onLine;
+
+        if (!online) {
+            statusPill.style.display = 'block';
+            statusPill.style.background = 'rgba(243, 156, 18, 0.95)';
+            statusPill.style.color = '#fff';
+            statusPill.innerText = 'Offline mode' + (count ? ' • Pending: ' + count : '');
+            return;
+        }
+
+        if (count > 0) {
+            statusPill.style.display = 'block';
+            statusPill.style.background = 'rgba(102, 126, 234, 0.95)';
+            statusPill.style.color = '#fff';
+            statusPill.innerText = syncInProgress ? 'Syncing offline data...' : 'Pending sync: ' + count;
+            return;
+        }
+
+        statusPill.style.display = 'none';
+    }
+
+    function hasFileInput(formData) {
+        var found = false;
+        formData.forEach(function (value) {
+            if (value instanceof File) {
+                found = true;
+            }
+        });
+        return found;
+    }
+
+    function sameOrigin(url) {
+        try {
+            return new URL(url, window.location.origin).origin === window.location.origin;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function normalizeHeaders(inputHeaders) {
+        var out = {};
+        if (!inputHeaders) {
+            return out;
+        }
+
+        if (typeof Headers !== 'undefined' && inputHeaders instanceof Headers) {
+            inputHeaders.forEach(function (value, key) {
+                out[key] = value;
+            });
+            return out;
+        }
+
+        if (Array.isArray(inputHeaders)) {
+            inputHeaders.forEach(function (pair) {
+                if (pair && pair.length === 2) {
+                    out[pair[0]] = pair[1];
+                }
+            });
+            return out;
+        }
+
+        if (typeof inputHeaders === 'object') {
+            Object.keys(inputHeaders).forEach(function (key) {
+                out[key] = inputHeaders[key];
+            });
+        }
+
+        return out;
+    }
+
+    function serializeFormDataEntries(formData) {
+        var entries = [];
+        formData.forEach(function (value, key) {
+            if (value instanceof File) {
+                return;
+            }
+            entries.push([key, value]);
+        });
+        return entries;
+    }
+
+    function isExcludedPath(url) {
+        var finalUrl = (url || '').toLowerCase();
+        return finalUrl.includes('/login') || finalUrl.includes('/logout');
+    }
+
+    function isWriteMethod(method) {
+        var m = (method || 'GET').toUpperCase();
+        return m !== 'GET' && m !== 'HEAD' && m !== 'OPTIONS';
+    }
+
+    function enqueueRequest(payload) {
+        var queue = readQueue();
+        queue.push(payload);
+        writeQueue(queue);
+        updateStatusPill();
+    }
+
+    function requestShouldBeQueued(url, method) {
+        if (!sameOrigin(url)) {
+            return false;
+        }
+        if (!isWriteMethod(method)) {
+            return false;
+        }
+        if (isExcludedPath(url)) {
+            return false;
+        }
+        return true;
+    }
+
+    function formShouldBeQueued(form) {
+        if (form.hasAttribute('data-offline-exclude')) {
+            return false;
+        }
+
+        var action = form.getAttribute('action') || window.location.href;
+        var method = (form.getAttribute('method') || 'GET').toUpperCase();
+        if (!requestShouldBeQueued(action, method)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    function buildPayloadFromForm(form, source) {
+        var action = form.getAttribute('action') || window.location.href;
+        var method = (form.getAttribute('method') || 'POST').toUpperCase();
+        var formData = new FormData(form);
+
+        if (hasFileInput(formData)) {
+            return { error: 'file_not_supported' };
+        }
+
+        var headers = {};
+        var csrf = formData.get('_token') || '';
+        if (csrf) {
+            headers['X-CSRF-TOKEN'] = csrf;
+        }
+
+        return {
+            source: source || 'form',
+            action: action,
+            method: method,
+            bodyType: 'formData',
+            body: serializeFormDataEntries(formData),
+            headers: headers,
+            queuedAt: new Date().toISOString()
+        };
+    }
+
+    function buildFetchBody(payload) {
+        if (payload.bodyType === 'formData') {
+            var data = new FormData();
+            (payload.body || []).forEach(function (pair) {
+                data.append(pair[0], pair[1]);
+            });
+            return data;
+        }
+        if (payload.bodyType === 'text') {
+            return payload.body || '';
+        }
+        return null;
+    }
+
+    async function flushQueue() {
+        if (syncInProgress || !navigator.onLine) {
+            return;
+        }
+
+        var queue = readQueue();
+        if (!queue.length) {
+            updateStatusPill();
+            return;
+        }
+
+        syncInProgress = true;
+        updateStatusPill();
+
+        var processed = 0;
+        while (queue.length && navigator.onLine) {
+            var item = queue[0];
+            try {
+                var headers = normalizeHeaders(item.headers);
+                headers['X-Offline-Sync'] = '1';
+                if (!headers['X-Requested-With']) {
+                    headers['X-Requested-With'] = 'XMLHttpRequest';
+                }
+
+                var response = await fetch(item.action, {
+                    method: item.method || 'POST',
+                    body: buildFetchBody(item),
+                    credentials: 'same-origin',
+                    headers: headers
+                });
+
+                if (!response.ok) {
+                    // Keep remaining queue for retry later.
+                    if (response.status === 401 || response.status === 419) {
+                        notify('Session expired. Please login again, then sync will continue.', 'warning');
+                    }
+                    break;
+                }
+
+                queue.shift();
+                processed += 1;
+                writeQueue(queue);
+            } catch (error) {
+                // Network failure: stop now and retry when online event fires again.
+                break;
+            }
+        }
+
+        syncInProgress = false;
+        updateStatusPill();
+
+        if (processed > 0) {
+            notify(processed + ' offline record(s) synced to server.', 'success');
+        }
+    }
+
+    function buildOfflineSuccessResponse() {
+        return new Response(JSON.stringify({
+            offlineQueued: true,
+            message: 'Saved offline. Will sync automatically when online.'
+        }), {
+            status: 202,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+
+    function queueFetchRequest(url, method, init) {
+        var headers = normalizeHeaders(init && init.headers);
+        var payload = {
+            source: 'fetch',
+            action: url,
+            method: method,
+            headers: headers,
+            queuedAt: new Date().toISOString()
+        };
+
+        var body = init && init.body;
+        if (typeof FormData !== 'undefined' && body instanceof FormData) {
+            if (hasFileInput(body)) {
+                return { error: 'file_not_supported' };
+            }
+            payload.bodyType = 'formData';
+            payload.body = serializeFormDataEntries(body);
+        } else if (typeof URLSearchParams !== 'undefined' && body instanceof URLSearchParams) {
+            payload.bodyType = 'text';
+            payload.body = body.toString();
+            payload.headers['Content-Type'] = payload.headers['Content-Type'] || 'application/x-www-form-urlencoded; charset=UTF-8';
+        } else if (typeof body === 'string') {
+            payload.bodyType = 'text';
+            payload.body = body;
+        } else if (body == null) {
+            payload.bodyType = 'text';
+            payload.body = '';
+        } else {
+            return { error: 'unsupported_body' };
+        }
+
+        enqueueRequest(payload);
+        return { ok: true };
+    }
+
+    function interceptFetchForOfflineQueue() {
+        if (!window.fetch) {
+            return;
+        }
+
+        var nativeFetch = window.fetch.bind(window);
+        window.fetch = function (input, init) {
+            var request = null;
+            if (typeof Request !== 'undefined' && input instanceof Request) {
+                request = input;
+            }
+
+            var url = request ? request.url : String(input || '');
+            var method = ((init && init.method) || (request && request.method) || 'GET').toUpperCase();
+            var headers = normalizeHeaders((init && init.headers) || (request && request.headers));
+
+            // Never re-queue sync calls.
+            if (String(headers['X-Offline-Sync'] || '').toLowerCase() === '1') {
+                return nativeFetch(input, init);
+            }
+
+            if (!navigator.onLine && requestShouldBeQueued(url, method)) {
+                var queued = queueFetchRequest(url, method, init || {});
+                if (queued.error === 'file_not_supported') {
+                    notify('Offline queue does not support file upload yet.', 'error');
+                    return Promise.reject(new Error('Offline file upload not supported'));
+                }
+                if (queued.error === 'unsupported_body') {
+                    notify('Could not queue this offline request type.', 'error');
+                    return Promise.reject(new Error('Unsupported offline request body'));
+                }
+
+                notify('No internet. Request saved offline and queued for sync.', 'warning');
+                return Promise.resolve(buildOfflineSuccessResponse());
+            }
+
+            return nativeFetch(input, init);
+        };
+    }
+
+    function interceptJqueryAjaxForOfflineQueue() {
+        if (!window.jQuery || !window.jQuery.ajax) {
+            return;
+        }
+
+        var originalAjax = window.jQuery.ajax;
+        window.jQuery.ajax = function (urlOrOptions, maybeOptions) {
+            var opts = {};
+            if (typeof urlOrOptions === 'string') {
+                opts = maybeOptions || {};
+                opts.url = urlOrOptions;
+            } else {
+                opts = urlOrOptions || {};
+            }
+
+            var method = (opts.type || opts.method || 'GET').toUpperCase();
+            var url = opts.url || window.location.href;
+            var headers = normalizeHeaders(opts.headers);
+
+            if (String(headers['X-Offline-Sync'] || '').toLowerCase() === '1') {
+                return originalAjax.apply(window.jQuery, arguments);
+            }
+
+            if (!navigator.onLine && requestShouldBeQueued(url, method)) {
+                var payload = {
+                    source: 'jquery-ajax',
+                    action: url,
+                    method: method,
+                    headers: headers,
+                    queuedAt: new Date().toISOString()
+                };
+
+                if (opts.data instanceof FormData) {
+                    if (hasFileInput(opts.data)) {
+                        notify('Offline queue does not support file upload yet.', 'error');
+                        return originalAjax.apply(window.jQuery, arguments);
+                    }
+                    payload.bodyType = 'formData';
+                    payload.body = serializeFormDataEntries(opts.data);
+                } else if (typeof opts.data === 'string') {
+                    payload.bodyType = 'text';
+                    payload.body = opts.data;
+                    payload.headers['Content-Type'] = payload.headers['Content-Type'] || 'application/x-www-form-urlencoded; charset=UTF-8';
+                } else if (opts.data && typeof opts.data === 'object') {
+                    payload.bodyType = 'text';
+                    payload.body = window.jQuery.param(opts.data);
+                    payload.headers['Content-Type'] = payload.headers['Content-Type'] || 'application/x-www-form-urlencoded; charset=UTF-8';
+                } else {
+                    payload.bodyType = 'text';
+                    payload.body = '';
+                }
+
+                enqueueRequest(payload);
+                notify('No internet. Request saved offline and queued for sync.', 'warning');
+
+                var deferred = window.jQuery.Deferred();
+                var mockResponse = { offlineQueued: true, message: 'Saved offline.' };
+                if (typeof opts.success === 'function') {
+                    opts.success(mockResponse, 'accepted', { status: 202 });
+                }
+                deferred.resolve(mockResponse, 'accepted', { status: 202 });
+                return deferred.promise();
+            }
+
+            return originalAjax.apply(window.jQuery, arguments);
+        };
+    }
+
+    function bindOfflineQueueToForms() {
+        document.addEventListener('submit', function (event) {
+            var form = event.target;
+            if (!(form instanceof HTMLFormElement)) {
+                return;
+            }
+            if (!formShouldBeQueued(form)) {
+                return;
+            }
+
+            // If online, let the normal submit flow continue.
+            if (navigator.onLine) {
+                return;
+            }
+
+            event.preventDefault();
+            var payload = buildPayloadFromForm(form, 'form-submit');
+
+            if (payload.error === 'file_not_supported') {
+                notify('This form has file upload. Offline save is not supported for files.', 'error');
+                return;
+            }
+
+            enqueueRequest(payload);
+            notify('No internet. Data saved offline and will sync automatically.', 'warning');
+            form.reset();
+        }, true);
+    }
+
+    window.addEventListener('online', function () {
+        updateStatusPill();
+        flushQueue();
+    });
+    window.addEventListener('offline', updateStatusPill);
+    window.addEventListener('load', function () {
+        updateStatusPill();
+        interceptFetchForOfflineQueue();
+        interceptJqueryAjaxForOfflineQueue();
+        bindOfflineQueueToForms();
+        flushQueue();
+    });
 })();
 </script>
 

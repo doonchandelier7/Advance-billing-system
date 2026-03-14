@@ -4,6 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#0f1117">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="{{ config('app.name') }}">
+    <link rel="manifest" href="{{ asset('manifest.json') }}">
+    <link rel="apple-touch-icon" href="{{ asset('icons/icon-192.png') }}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('icons/icon-192.png') }}">
     <title>@yield('title', 'Login') — {{ config('app.name') }}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -243,6 +250,105 @@
             applyTheme(current === 'dark' ? 'light' : 'dark');
         });
     }
+})();
+</script>
+
+{{-- PWA Register + Install Button --}}
+<script>
+(function () {
+    if (!('serviceWorker' in navigator)) {
+        return;
+    }
+
+    var deferredPrompt = null;
+
+    function isStandaloneMode() {
+        return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+
+    function showInstallHelp() {
+        window.alert('Install is not available right now. Open browser menu and choose "Install app" or "Add to Home screen".');
+    }
+
+    function updateInstallButtonState(button) {
+        if (isStandaloneMode()) {
+            button.style.display = 'none';
+            return;
+        }
+
+        button.style.display = 'inline-block';
+        button.innerText = deferredPrompt ? 'Install App' : 'Install Guide';
+    }
+
+    window.addEventListener('load', function () {
+        navigator.serviceWorker.register("{{ asset('sw.js') }}", { updateViaCache: "none" }).catch(function (error) {
+            console.warn('Service worker registration failed:', error);
+        });
+
+        setTimeout(function () {
+            updateInstallButtonState(installButton);
+        }, 1500);
+    });
+
+    function ensureInstallButton() {
+        var existing = document.getElementById('pwaInstallButton');
+        if (existing) {
+            return existing;
+        }
+
+        var button = document.createElement('button');
+        button.id = 'pwaInstallButton';
+        button.type = 'button';
+        button.innerText = 'Install App';
+        button.style.position = 'fixed';
+        button.style.right = '16px';
+        button.style.bottom = '16px';
+        button.style.zIndex = '1060';
+        button.style.border = '0';
+        button.style.padding = '10px 14px';
+        button.style.borderRadius = '8px';
+        button.style.fontWeight = '700';
+        button.style.color = '#fff';
+        button.style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
+        button.style.boxShadow = '0 8px 22px rgba(102,126,234,0.35)';
+        button.style.display = 'inline-block';
+        document.body.appendChild(button);
+        return button;
+    }
+
+    var installButton = ensureInstallButton();
+    updateInstallButtonState(installButton);
+
+    window.addEventListener('beforeinstallprompt', function (event) {
+        event.preventDefault();
+        deferredPrompt = event;
+        updateInstallButtonState(installButton);
+    });
+
+    installButton.addEventListener('click', async function () {
+        if (isStandaloneMode()) {
+            return;
+        }
+
+        if (!deferredPrompt) {
+            showInstallHelp();
+            return;
+        }
+
+        deferredPrompt.prompt();
+        try {
+            await deferredPrompt.userChoice;
+        } catch (error) {
+            console.warn('Install prompt was dismissed:', error);
+        }
+        deferredPrompt = null;
+        updateInstallButtonState(installButton);
+    });
+
+    window.addEventListener('appinstalled', function () {
+        deferredPrompt = null;
+        updateInstallButtonState(installButton);
+    });
 })();
 </script>
 

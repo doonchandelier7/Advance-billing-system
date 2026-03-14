@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#4f46e5" />
+  <title>Offline - Advance Billing System</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f1f5f9;
+      font-family: Arial, sans-serif;
+      color: #0f172a;
+    }
+    .card {
+      width: min(90vw, 460px);
+      background: #ffffff;
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+      padding: 24px;
+      text-align: center;
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 1.5rem;
+      color: #312e81;
+    }
+    p {
+      color: #334155;
+      line-height: 1.5;
+    }
+    a {
+      display: inline-block;
+      margin-top: 12px;
+      text-decoration: none;
+      background: #4f46e5;
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>You are offline</h1>
+    <p>
+      The app is installed and can still open saved pages, but your internet
+      connection is currently unavailable.
+    </p>
+    <a href="/login">Try again</a>
+  </main>
+</body>
+</html>
