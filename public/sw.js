@@ -1,10 +1,15 @@
-const APP_SHELL_CACHE = "advance-billing-shell-v4";
-const RUNTIME_CACHE = "advance-billing-runtime-v4";
+const APP_SHELL_CACHE = "advance-billing-shell-v5";
+const RUNTIME_CACHE = "advance-billing-runtime-v5";
 const OFFLINE_FALLBACK = "/offline.html";
 const MAX_RUNTIME_ENTRIES = 80;
 const MAX_CACHEABLE_BYTES = 1_500_000; // 1.5 MB
 
-const appShellUrls = [OFFLINE_FALLBACK];
+const appShellUrls = [
+  OFFLINE_FALLBACK,
+  "/manifest.json",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+];
 
 function isSameOrigin(url) {
   try {
@@ -12,6 +17,10 @@ function isSameOrigin(url) {
   } catch {
     return false;
   }
+}
+
+function isNavigationRequest(request) {
+  return request.mode === "navigate" || request.headers.get("accept")?.includes("text/html");
 }
 
 function shouldSkipRequest(request) {
@@ -22,19 +31,10 @@ function shouldSkipRequest(request) {
     return true;
   }
 
-  // Never cache HTML navigation requests — they contain Laravel CSRF tokens
-  // that expire, causing 419 Page Expired errors when served from cache.
-  if (request.mode === "navigate" || request.headers.get("accept")?.includes("text/html")) {
-    return true;
-  }
-
-  // Avoid caching API, upload/process endpoints and anything cross-origin.
+  // Avoid auth/session endpoints and anything cross-origin.
   if (
     !isSameOrigin(url) ||
-    pathname.startsWith("/api/") ||
-    pathname.includes("/upload") ||
-    pathname.includes("/process") ||
-    pathname.includes("/save")
+    pathname.startsWith("/logout")
   ) {
     return true;
   }
@@ -56,11 +56,87 @@ async function trimCache(cacheName, maxEntries) {
   }
 }
 
+async function putIntoRuntimeCache(request, response) {
+  if (!response || response.status !== 200 || response.type !== "basic") {
+    return;
+  }
+
+  const contentLength = Number(response.headers.get("content-length") || 0);
+  if (contentLength > 0 && contentLength > MAX_CACHEABLE_BYTES) {
+    return;
+  }
+
+  // Respect explicit no-store responses.
+  if ((response.headers.get("cache-control") || "").toLowerCase().includes("no-store")) {
+    return;
+  }
+
+  const cache = await caches.open(RUNTIME_CACHE);
+  await cache.put(request, response.clone());
+  await trimCache(RUNTIME_CACHE, MAX_RUNTIME_ENTRIES);
+}
+
+async function networkFirstWithOfflineFallback(request) {
+  try {
+    const networkResponse = await fetch(request);
+    await putIntoRuntimeCache(request, networkResponse);
+    return networkResponse;
+  } catch (error) {
+    const cached = await caches.match(request);
+    if (cached) {
+      return cached;
+    }
+    const offlinePage = await caches.match(OFFLINE_FALLBACK);
+    if (offlinePage) {
+      return offlinePage;
+    }
+    throw error;
+  }
+}
+
+async function staleWhileRevalidate(request) {
+  const cached = await caches.match(request);
+  const networkPromise = fetch(request)
+    .then(async (networkResponse) => {
+      await putIntoRuntimeCache(request, networkResponse);
+      return networkResponse;
+    })
+    .catch(() => null);
+
+  if (cached) {
+    return cached;
+  }
+
+  const networkResponse = await networkPromise;
+  if (networkResponse) {
+    return networkResponse;
+  }
+
+  return new Response(JSON.stringify({ message: "Offline and no cached data found." }), {
+    status: 503,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "CACHE_CURRENT_PAGE" && event.data.url) {
+    event.waitUntil(
+      fetch(event.data.url)
+        .then((response) => putIntoRuntimeCache(event.data.url, response))
+        .catch(() => {})
+    );
+  }
+});
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(APP_SHELL_CACHE)
-      .then((cache) => cache.addAll(appShellUrls.map((url) => new Request(url, { cache: "reload" }))))
+      .then((cache) =>
+        Promise.all(
+          appShellUrls.map((url) => cache.add(new Request(url, { cache: "reload" })).catch(() => null))
+        )
+      )
       .catch(() => {})
   );
   self.skipWaiting();
@@ -86,39 +162,10 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  event.respondWith(
-    fetch(request)
-      .then(async (networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== "basic") {
-          return networkResponse;
-        }
+  if (isNavigationRequest(request)) {
+    event.respondWith(networkFirstWithOfflineFallback(request));
+    return;
+  }
 
-        const contentLength = Number(networkResponse.headers.get("content-length") || 0);
-        if (contentLength > 0 && contentLength > MAX_CACHEABLE_BYTES) {
-          return networkResponse;
-        }
-
-        const responseClone = networkResponse.clone();
-        const cache = await caches.open(RUNTIME_CACHE);
-        await cache.put(request, responseClone);
-        await trimCache(RUNTIME_CACHE, MAX_RUNTIME_ENTRIES);
-
-        return networkResponse;
-      })
-      .catch(async () => {
-        const cached = await caches.match(request);
-        if (cached) {
-          return cached;
-        }
-
-        if (request.mode === "navigate") {
-          const offlinePage = await caches.match(OFFLINE_FALLBACK);
-          if (offlinePage) {
-            return offlinePage;
-          }
-        }
-
-        return caches.match("/login");
-      })
-  );
+  event.respondWith(staleWhileRevalidate(request));
 });

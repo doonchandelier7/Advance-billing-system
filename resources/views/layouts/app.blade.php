@@ -313,6 +313,16 @@
             background: var(--logout-bg-hover) !important;
         }
 
+        .abs-sidebar-offline-host {
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        [data-theme="light"] .abs-sidebar-offline-host {
+            border-top-color: rgba(0,0,0,0.08);
+        }
+        [data-theme="light"] .abs-sidebar-offline-host .abs-offline-hint {
+            color: rgba(0,0,0,0.5) !important;
+        }
+
         /* ===== CONTENT ===== */
         .content-wrapper {
             background: var(--bg-body) !important;
@@ -825,6 +835,12 @@
                             <i class="nav-icon fas fa-magic"></i><p>AI Invoice Scan</p>
                         </a>
                     </li>
+                    <li class="nav-header">Admin Panel</li>
+                    <li class="nav-item">
+                        <a href="#" id="sidebarQuickActionsManage" class="nav-link">
+                            <i class="nav-icon fas fa-sliders-h"></i><p>Manage Quick Actions</p>
+                        </a>
+                    </li>
                     <li class="nav-header">Account</li>
                     <li class="nav-item">
                         <form action="{{ route('logout') }}" method="POST" class="d-inline w-100" data-offline-exclude>@csrf
@@ -835,6 +851,15 @@
                     </li>
                 </ul>
             </nav>
+            {{-- Offline tools: below sidebar menu (full width, scrolls with sidebar) --}}
+            <div id="absSidebarOfflineHost" class="abs-sidebar-offline-host px-3 pb-3 mt-2 pt-3">
+                <div class="nav-header text-uppercase" style="opacity:.85;">Offline</div>
+                <button type="button" id="offlinePreloadRetryButton" class="btn btn-sm w-100 mb-2" style="display:none; background: linear-gradient(135deg,#fd7e14,#e8590c); color:#fff; border:0; font-weight:700; font-size:11px;">Retry Failed Offline URLs</button>
+                <div id="offlinePreloadMetaLabel" class="w-100 mb-2 p-2 rounded" style="display:none; font-size:11px; font-weight:600; color:#eaf8f4; background:rgba(0,92,72,0.92); box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+                <button type="button" id="offlinePreloadButton" class="btn btn-sm w-100 mb-1" style="background: linear-gradient(135deg,#00b894,#00a383); color:#fff; border:0; font-weight:700; font-size:12px;">Download Offline Data</button>
+                <p class="mb-2 small abs-offline-hint" style="font-size:10px; line-height:1.35; color: rgba(255,255,255,0.45);">Also refreshes in background ~2.5s after each page load (default: every 10 min).</p>
+                <div id="offlineSyncStatus" class="w-100 p-2 rounded" style="display:none; font-size:11px; font-weight:600; box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+            </div>
         </div>
     </aside>
 
@@ -898,6 +923,303 @@
             }
         });
     }
+})();
+</script>
+
+{{-- Quick Actions (Billing Shortcuts) --}}
+<script>
+(function () {
+    if (!window.jQuery) {
+        return;
+    }
+
+    var ACTION_PREF_KEY = 'abs-quick-actions-enabled-v1';
+    var actions = [
+        { id: 'sale-create', label: 'Create Sale Bill', hint: 'Transactions', url: '{{ route("modules.transactions.sales.create") }}', tags: ['sale', 'billing', 'invoice'] },
+        { id: 'purchase-create', label: 'Create Purchase Bill', hint: 'Transactions', url: '{{ route("modules.transactions.purchases.create") }}', tags: ['purchase', 'stock'] },
+        { id: 'sales-return-create', label: 'Create Sales Return', hint: 'Transactions', url: '{{ route("modules.transactions.sales-returns.create") }}', tags: ['sales return', 'credit note'] },
+        { id: 'purchase-return-create', label: 'Create Purchase Return', hint: 'Transactions', url: '{{ route("modules.transactions.purchase-returns.create") }}', tags: ['purchase return', 'debit note'] },
+        { id: 'gst-invoice-create', label: 'Create GST Invoice', hint: 'Invoices', url: '{{ route("invoices.create") }}', tags: ['gst', 'invoice'] },
+        { id: 'invoice-list', label: 'Invoice List', hint: 'Invoices', url: '{{ route("invoices.index") }}', tags: ['invoice list', 'history'] },
+        { id: 'master-setup', label: 'Master Setup', hint: 'Catalog', url: '{{ route("modules.master-setup") }}', tags: ['customer', 'vendor', 'product'] },
+        { id: 'accounting', label: 'Accounting', hint: 'Chart of Accounts', url: '{{ route("modules.accounting") }}', tags: ['ledger', 'accounts'] },
+        { id: 'reports', label: 'Reports', hint: 'Analysis', url: '{{ route("modules.reports") }}', tags: ['sales report', 'purchase report'] },
+        { id: 'ai-invoice-scan', label: 'AI Invoice Scan', hint: 'Automation', url: '{{ route("ai-invoice.index") }}', tags: ['ocr', 'scan'] },
+        { id: 'offline-download', label: 'Download Offline Data', hint: 'Offline', action: 'offline-download', tags: ['offline', 'cache', 'sync'] }
+    ];
+    var lastRenderedActions = [];
+
+    var modalHtml = [
+        '<div class="modal fade" id="quickActionsModal" tabindex="-1" role="dialog" aria-hidden="true">',
+        '  <div class="modal-dialog modal-dialog-centered" role="document" style="max-width:680px;">',
+        '    <div class="modal-content" style="border-radius:12px;">',
+        '      <div class="modal-header" style="padding:12px 16px;">',
+        '        <h5 class="modal-title mb-0">Quick Actions</h5>',
+        '        <button type="button" id="quickActionsManageBtn" class="btn btn-sm btn-outline-info ml-2" aria-label="Manage quick actions">Manage</button>',
+        '        <button type="button" id="quickActionsHelpBtn" class="btn btn-sm btn-outline-secondary ml-2" ',
+        '          title="Shortcuts: Ctrl/Cmd+K open, Enter first result, 1-9 choose visible items 1-9, 0 choose visible item 10, Esc close."',
+        '          data-toggle="tooltip" data-placement="bottom" aria-label="Keyboard shortcuts help">?',
+        '        </button>',
+        '        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>',
+        '      </div>',
+        '      <div class="modal-body" style="padding:12px 16px;">',
+        '        <div id="quickActionsManagePanel" class="border rounded p-2 mb-3" style="display:none;">',
+        '          <div class="d-flex justify-content-between align-items-center mb-2">',
+        '            <strong style="font-size:13px;">Manage Quick Actions</strong>',
+        '            <button type="button" id="quickActionsManageReset" class="btn btn-xs btn-link p-0">Reset Default</button>',
+        '          </div>',
+        '          <div id="quickActionsManageList" style="max-height:160px; overflow:auto;"></div>',
+        '        </div>',
+        '        <input id="quickActionsInput" type="text" class="form-control" placeholder="Search billing actions (sale, purchase, invoice, report)..." autocomplete="off" />',
+        '        <div class="small text-muted mt-2">Use <strong>Ctrl/Cmd + K</strong> to open. Press <strong>Enter</strong> for first result, or <strong>1-9,0</strong> for direct action.</div>',
+        '        <div id="quickActionsList" class="list-group mt-3" style="max-height:340px; overflow:auto;"></div>',
+        '      </div>',
+        '    </div>',
+        '  </div>',
+        '</div>'
+    ].join('');
+
+    function ensureModal() {
+        if (!document.getElementById('quickActionsModal')) {
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            bindManagePanelEvents();
+        }
+    }
+
+    function readEnabledActions() {
+        try {
+            var raw = localStorage.getItem(ACTION_PREF_KEY);
+            var parsed = raw ? JSON.parse(raw) : null;
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch (error) {
+            return {};
+        }
+    }
+
+    function writeEnabledActions(map) {
+        try {
+            localStorage.setItem(ACTION_PREF_KEY, JSON.stringify(map || {}));
+        } catch (error) {
+            // No-op.
+        }
+    }
+
+    function isActionEnabled(action, map) {
+        var enabledMap = map || readEnabledActions();
+        if (!action || !action.id) {
+            return true;
+        }
+        if (Object.prototype.hasOwnProperty.call(enabledMap, action.id)) {
+            return enabledMap[action.id] !== false;
+        }
+        return true;
+    }
+
+    function getVisibleActions() {
+        var enabledMap = readEnabledActions();
+        return actions.filter(function (action) {
+            return isActionEnabled(action, enabledMap);
+        });
+    }
+
+    function renderManagePanel() {
+        var list = document.getElementById('quickActionsManageList');
+        if (!list) {
+            return;
+        }
+        var enabledMap = readEnabledActions();
+        list.innerHTML = actions.map(function (action) {
+            var checked = isActionEnabled(action, enabledMap) ? 'checked' : '';
+            return [
+                '<label class="d-flex align-items-center mb-1" style="gap:8px; font-size:12px; cursor:pointer;">',
+                '  <input type="checkbox" class="qa-manage-toggle" data-action-id="', action.id, '" ', checked, ' />',
+                '  <span><strong>', action.label, '</strong> <span class="text-muted">(', action.hint, ')</span></span>',
+                '</label>'
+            ].join('');
+        }).join('');
+    }
+
+    function bindManagePanelEvents() {
+        document.addEventListener('click', function (event) {
+            if (event.target && event.target.id === 'quickActionsManageBtn') {
+                var panel = document.getElementById('quickActionsManagePanel');
+                if (!panel) {
+                    return;
+                }
+                var show = panel.style.display === 'none';
+                panel.style.display = show ? 'block' : 'none';
+                if (show) {
+                    renderManagePanel();
+                }
+            }
+            if (event.target && event.target.id === 'quickActionsManageReset') {
+                localStorage.removeItem(ACTION_PREF_KEY);
+                renderManagePanel();
+                var input = document.getElementById('quickActionsInput');
+                renderActions(input ? input.value : '');
+            }
+        });
+
+        document.addEventListener('change', function (event) {
+            if (!(event.target && event.target.classList && event.target.classList.contains('qa-manage-toggle'))) {
+                return;
+            }
+            var actionId = event.target.getAttribute('data-action-id');
+            if (!actionId) {
+                return;
+            }
+            var map = readEnabledActions();
+            map[actionId] = !!event.target.checked;
+            writeEnabledActions(map);
+            var input = document.getElementById('quickActionsInput');
+            renderActions(input ? input.value : '');
+        });
+    }
+
+    function matchAction(action, query) {
+        if (!query) {
+            return true;
+        }
+        var hay = (action.label + ' ' + action.hint + ' ' + (action.tags || []).join(' ')).toLowerCase();
+        return hay.indexOf(query.toLowerCase()) !== -1;
+    }
+
+    function renderActions(query) {
+        var list = document.getElementById('quickActionsList');
+        if (!list) {
+            return;
+        }
+        var filtered = getVisibleActions().filter(function (action) {
+            return matchAction(action, query);
+        });
+        lastRenderedActions = filtered.slice();
+
+        if (!filtered.length) {
+            list.innerHTML = '<div class="list-group-item text-muted">No matching action found.</div>';
+            return;
+        }
+
+        list.innerHTML = filtered.map(function (action, idx) {
+            return [
+                '<button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" data-qa-index="', idx, '">',
+                '  <span><strong>', action.label, '</strong><br><small class="text-muted">', action.hint, '</small></span>',
+                '  <span class="badge badge-light">', getShortcutLabel(idx), '</span>',
+                '</button>'
+            ].join('');
+        }).join('');
+
+        Array.prototype.slice.call(list.querySelectorAll('[data-qa-index]')).forEach(function (el) {
+            el.addEventListener('click', function () {
+                var i = Number(el.getAttribute('data-qa-index'));
+                runAction(filtered[i]);
+            });
+        });
+    }
+
+    function getShortcutLabel(index) {
+        if (index === 0) {
+            return 'Enter / 1';
+        }
+        if (index > 0 && index < 9) {
+            return String(index + 1);
+        }
+        if (index === 9) {
+            return '0';
+        }
+        return '-';
+    }
+
+    function getActionByNumberKey(key) {
+        if (key === '0') {
+            return lastRenderedActions[9] || null;
+        }
+        var n = Number(key);
+        if (n >= 1 && n <= 9) {
+            return lastRenderedActions[n - 1] || null;
+        }
+        return null;
+    }
+
+    function isQuickActionsOpen() {
+        return document.getElementById('quickActionsModal') && window.jQuery('#quickActionsModal').hasClass('show');
+    }
+
+    function runAction(action) {
+        if (!action) {
+            return;
+        }
+        if (action.action === 'offline-download') {
+            window.dispatchEvent(new CustomEvent('abs:offline-preload-request'));
+        } else if (action.url) {
+            window.location.href = action.url;
+        }
+        window.jQuery('#quickActionsModal').modal('hide');
+    }
+
+    function openQuickActions(openManagePanel) {
+        ensureModal();
+        var input = document.getElementById('quickActionsInput');
+        var panel = document.getElementById('quickActionsManagePanel');
+        if (panel) {
+            panel.style.display = openManagePanel ? 'block' : 'none';
+            if (openManagePanel) {
+                renderManagePanel();
+            }
+        }
+        if (window.jQuery && window.jQuery.fn && window.jQuery.fn.tooltip) {
+            window.jQuery('#quickActionsHelpBtn').tooltip();
+        }
+        renderActions('');
+        window.jQuery('#quickActionsModal').modal('show');
+        setTimeout(function () {
+            if (input) {
+                input.value = '';
+                input.focus();
+            }
+        }, 100);
+    }
+
+    document.addEventListener('keydown', function (event) {
+        var key = String(event.key || '').toLowerCase();
+        if ((event.ctrlKey || event.metaKey) && key === 'k') {
+            event.preventDefault();
+            openQuickActions(false);
+            return;
+        }
+
+        if (key === 'enter' && isQuickActionsOpen()) {
+            var input = document.getElementById('quickActionsInput');
+            var filtered = getVisibleActions().filter(function (action) {
+                return matchAction(action, input ? input.value : '');
+            });
+            if (filtered.length) {
+                event.preventDefault();
+                runAction(filtered[0]);
+            }
+            return;
+        }
+
+        if (isQuickActionsOpen() && /^[0-9]$/.test(key)) {
+            var action = getActionByNumberKey(key);
+            if (action) {
+                event.preventDefault();
+                runAction(action);
+            }
+        }
+    });
+
+    document.addEventListener('input', function (event) {
+        if (event.target && event.target.id === 'quickActionsInput') {
+            renderActions(event.target.value || '');
+        }
+    });
+
+    document.addEventListener('click', function (event) {
+        if (event.target && event.target.id === 'sidebarQuickActionsManage') {
+            event.preventDefault();
+            openQuickActions(true);
+        }
+    });
 })();
 </script>
 
@@ -1004,8 +1326,19 @@
 <script>
 (function () {
     var STORAGE_KEY = 'abs-offline-request-queue-v2';
+    var GET_CACHE_KEY = 'abs-offline-get-response-cache-v1';
+    var PRELOAD_META_KEY = 'abs-offline-preload-meta-v1';
+    var PRELOAD_FAILED_KEY = 'abs-offline-preload-failed-urls-v1';
+    var AUTO_PRELOAD_LAST_KEY = 'abs-offline-auto-preload-at';
+    var GET_CACHE_MAX_ENTRIES = 120;
+    var GET_CACHE_MAX_BODY_SIZE = 250000;
     var statusPill = null;
+    var preloadButton = null;
+    var preloadMetaLabel = null;
+    var retryPreloadButton = null;
     var syncInProgress = false;
+    var preloadInProgress = false;
+    var lastCachedReadNoticeAt = 0;
 
     function readQueue() {
         try {
@@ -1020,6 +1353,59 @@
 
     function writeQueue(queue) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
+    }
+
+    function readGetCacheMap() {
+        try {
+            var raw = localStorage.getItem(GET_CACHE_KEY);
+            var parsed = raw ? JSON.parse(raw) : {};
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch (error) {
+            console.warn('Could not read offline GET cache:', error);
+            return {};
+        }
+    }
+
+    function writeGetCacheMap(map) {
+        try {
+            localStorage.setItem(GET_CACHE_KEY, JSON.stringify(map));
+        } catch (error) {
+            // If storage is full, clear read cache only and continue app flow.
+            try {
+                localStorage.removeItem(GET_CACHE_KEY);
+            } catch (innerError) {
+                // No-op.
+            }
+        }
+    }
+
+    function normalizeCacheUrl(url) {
+        try {
+            var parsed = new URL(url, window.location.origin);
+            parsed.hash = '';
+            return parsed.toString();
+        } catch (error) {
+            return String(url || '');
+        }
+    }
+
+    function trimGetCacheMap(map) {
+        var keys = Object.keys(map || {});
+        if (keys.length <= GET_CACHE_MAX_ENTRIES) {
+            return map;
+        }
+
+        keys.sort(function (a, b) {
+            var aTs = Date.parse((map[a] && map[a].savedAt) || 0) || 0;
+            var bTs = Date.parse((map[b] && map[b].savedAt) || 0) || 0;
+            return bTs - aTs;
+        });
+
+        var out = {};
+        keys.slice(0, GET_CACHE_MAX_ENTRIES).forEach(function (key) {
+            out[key] = map[key];
+        });
+        return out;
     }
 
     function queueCount() {
@@ -1051,6 +1437,15 @@
         });
     }
 
+    function notifyCachedReadFallback() {
+        var now = Date.now();
+        if (now - lastCachedReadNoticeAt < 20000) {
+            return;
+        }
+        lastCachedReadNoticeAt = now;
+        notify('Showing previously loaded data from offline cache.', 'warning');
+    }
+
     function ensureStatusPill() {
         var existing = document.getElementById('offlineSyncStatus');
         if (existing) {
@@ -1073,10 +1468,396 @@
         return pill;
     }
 
+    function ensurePreloadButton() {
+        var existing = document.getElementById('offlinePreloadButton');
+        if (existing) {
+            return existing;
+        }
+
+        var button = document.createElement('button');
+        button.id = 'offlinePreloadButton';
+        button.type = 'button';
+        button.textContent = 'Download Offline Data';
+        button.style.position = 'fixed';
+        button.style.left = '16px';
+        button.style.bottom = '56px';
+        button.style.zIndex = '1060';
+        button.style.border = '0';
+        button.style.padding = '8px 12px';
+        button.style.borderRadius = '8px';
+        button.style.fontSize = '12px';
+        button.style.fontWeight = '700';
+        button.style.color = '#fff';
+        button.style.background = 'linear-gradient(135deg, #00b894, #00a383)';
+        button.style.boxShadow = '0 6px 18px rgba(0,0,0,0.2)';
+        button.style.cursor = 'pointer';
+        document.body.appendChild(button);
+        return button;
+    }
+
+    function ensurePreloadMetaLabel() {
+        var existing = document.getElementById('offlinePreloadMetaLabel');
+        if (existing) {
+            return existing;
+        }
+
+        var label = document.createElement('div');
+        label.id = 'offlinePreloadMetaLabel';
+        label.style.position = 'fixed';
+        label.style.left = '16px';
+        label.style.bottom = '92px';
+        label.style.zIndex = '1060';
+        label.style.padding = '6px 10px';
+        label.style.borderRadius = '8px';
+        label.style.fontSize = '11px';
+        label.style.fontWeight = '600';
+        label.style.color = '#eaf8f4';
+        label.style.background = 'rgba(0, 92, 72, 0.9)';
+        label.style.boxShadow = '0 6px 18px rgba(0,0,0,0.2)';
+        label.style.maxWidth = '320px';
+        label.style.display = 'none';
+        document.body.appendChild(label);
+        return label;
+    }
+
+    function ensureRetryPreloadButton() {
+        var existing = document.getElementById('offlinePreloadRetryButton');
+        if (existing) {
+            return existing;
+        }
+
+        var button = document.createElement('button');
+        button.id = 'offlinePreloadRetryButton';
+        button.type = 'button';
+        button.textContent = 'Retry Failed Offline URLs';
+        button.style.position = 'fixed';
+        button.style.left = '16px';
+        button.style.bottom = '126px';
+        button.style.zIndex = '1060';
+        button.style.border = '0';
+        button.style.padding = '7px 11px';
+        button.style.borderRadius = '8px';
+        button.style.fontSize = '11px';
+        button.style.fontWeight = '700';
+        button.style.color = '#fff';
+        button.style.background = 'linear-gradient(135deg, #fd7e14, #e8590c)';
+        button.style.boxShadow = '0 6px 18px rgba(0,0,0,0.2)';
+        button.style.cursor = 'pointer';
+        button.style.display = 'none';
+        document.body.appendChild(button);
+        return button;
+    }
+
+    function readJsonStorage(key, fallback) {
+        try {
+            var raw = localStorage.getItem(key);
+            if (!raw) {
+                return fallback;
+            }
+            var parsed = JSON.parse(raw);
+            return parsed == null ? fallback : parsed;
+        } catch (error) {
+            return fallback;
+        }
+    }
+
+    function writeJsonStorage(key, value) {
+        try {
+            localStorage.setItem(key, JSON.stringify(value));
+        } catch (error) {
+            // No-op.
+        }
+    }
+
+    function readPreloadMeta() {
+        return readJsonStorage(PRELOAD_META_KEY, {});
+    }
+
+    function writePreloadMeta(meta) {
+        writeJsonStorage(PRELOAD_META_KEY, meta || {});
+    }
+
+    function readFailedPreloadUrls() {
+        var value = readJsonStorage(PRELOAD_FAILED_KEY, []);
+        return Array.isArray(value) ? value : [];
+    }
+
+    function writeFailedPreloadUrls(urls) {
+        writeJsonStorage(PRELOAD_FAILED_KEY, Array.isArray(urls) ? urls : []);
+    }
+
+    function formatDateTimeLabel(isoString) {
+        if (!isoString) {
+            return '';
+        }
+        var dt = new Date(isoString);
+        if (isNaN(dt.getTime())) {
+            return '';
+        }
+        return dt.toLocaleString();
+    }
+
+    function updatePreloadMetaLabel() {
+        if (!preloadMetaLabel) {
+            preloadMetaLabel = ensurePreloadMetaLabel();
+        }
+        var meta = readPreloadMeta();
+        var lastAt = formatDateTimeLabel(meta.lastCompletedAt || '');
+
+        if (!lastAt) {
+            preloadMetaLabel.style.display = 'none';
+            return;
+        }
+
+        var text = 'Offline data last downloaded: ' + lastAt;
+        if (typeof meta.lastSuccessCount === 'number') {
+            text += ' • Success: ' + meta.lastSuccessCount;
+        }
+        if (typeof meta.lastFailCount === 'number' && meta.lastFailCount > 0) {
+            text += ' • Failed: ' + meta.lastFailCount;
+        }
+
+        preloadMetaLabel.textContent = text;
+        preloadMetaLabel.style.display = 'block';
+    }
+
+    function getOfflinePreloadUrls() {
+        // Relative paths only — avoids APP_URL host (e.g. localhost) vs browser host (127.0.0.1) mismatch so session cookies apply.
+        var urls = [
+            '{{ route("dashboard", [], false) }}',
+            '{{ route("modules.master-setup", [], false) }}',
+            '{{ route("modules.transactions", [], false) }}',
+            '{{ route("modules.books-registers", [], false) }}',
+            '{{ route("modules.accounting", [], false) }}',
+            '{{ route("modules.reports", [], false) }}',
+            '{{ route("invoices.templates", [], false) }}',
+            '{{ route("invoices.create", [], false) }}',
+            '{{ route("invoices.index", [], false) }}',
+            '{{ route("ai-invoice.index", [], false) }}',
+            '/api/categories?per_page=500',
+            '/api/units?per_page=500',
+            '/api/vendors?per_page=500',
+            '/api/customers?per_page=500',
+            '/api/products?per_page=500',
+            '/api/accounts?per_page=500',
+            '/api/branches?per_page=500',
+            '/api/settings',
+            '/api/stock-movements?per_page=500',
+            '/api/reports/sales',
+            '/api/reports/purchase',
+            '/api/reports/stock',
+            '/api/reports/returns',
+            '/api/reports/gst-summary',
+            '/api/reports/profit-loss',
+            '/api/dashboard/summary',
+            '{{ route("locations.states", [], false) }}'
+        ];
+
+        var seen = {};
+        return urls.filter(function (url) {
+            if (!url || seen[url]) {
+                return false;
+            }
+            seen[url] = true;
+            return true;
+        });
+    }
+
+    function updatePreloadButtonState() {
+        if (!preloadButton) {
+            preloadButton = ensurePreloadButton();
+        }
+        if (!retryPreloadButton) {
+            retryPreloadButton = ensureRetryPreloadButton();
+        }
+        updatePreloadMetaLabel();
+        var failedUrls = readFailedPreloadUrls();
+
+        if (preloadInProgress) {
+            preloadButton.disabled = true;
+            preloadButton.style.opacity = '0.75';
+            preloadButton.textContent = 'Downloading...';
+            retryPreloadButton.disabled = true;
+            retryPreloadButton.style.opacity = '0.75';
+            retryPreloadButton.style.display = failedUrls.length ? 'block' : 'none';
+            return;
+        }
+
+        if (!navigator.onLine) {
+            preloadButton.disabled = true;
+            preloadButton.style.opacity = '0.6';
+            preloadButton.textContent = 'Offline Download (Go Online)';
+            retryPreloadButton.disabled = true;
+            retryPreloadButton.style.opacity = '0.6';
+            retryPreloadButton.style.display = failedUrls.length ? 'block' : 'none';
+            return;
+        }
+
+        preloadButton.disabled = false;
+        preloadButton.style.opacity = '1';
+        preloadButton.textContent = 'Download Offline Data';
+        retryPreloadButton.disabled = failedUrls.length === 0;
+        retryPreloadButton.style.opacity = failedUrls.length ? '1' : '0.6';
+        retryPreloadButton.style.display = failedUrls.length ? 'block' : 'none';
+    }
+
+    function getAutoPreloadIntervalMs() {
+        try {
+            var v = localStorage.getItem('abs-offline-auto-interval-min');
+            if (v === null || v === '') {
+                return 10 * 60 * 1000;
+            }
+            if (v === '0' || v === 'every') {
+                return 0;
+            }
+            var n = parseInt(v, 10);
+            if (!isNaN(n) && n >= 0) {
+                return n * 60 * 1000;
+            }
+        } catch (e) {
+            // No-op.
+        }
+        return 10 * 60 * 1000;
+    }
+
+    function scheduleAutoBackgroundPreload() {
+        setTimeout(function () {
+            if (!navigator.onLine || preloadInProgress) {
+                return;
+            }
+            var intervalMs = getAutoPreloadIntervalMs();
+            var last = 0;
+            try {
+                last = parseInt(localStorage.getItem(AUTO_PRELOAD_LAST_KEY) || '0', 10);
+            } catch (e) {
+                last = 0;
+            }
+            if (intervalMs > 0 && (Date.now() - last) < intervalMs) {
+                return;
+            }
+            try {
+                localStorage.setItem(AUTO_PRELOAD_LAST_KEY, String(Date.now()));
+            } catch (e) {
+                // No-op.
+            }
+            preloadUrls(getOfflinePreloadUrls(), '', { silent: true });
+        }, 2500);
+    }
+
+    async function preloadUrls(urls, successMessagePrefix, options) {
+        options = options || {};
+        var silent = !!options.silent;
+
+        if (preloadInProgress) {
+            return;
+        }
+        if (!navigator.onLine) {
+            if (!silent) {
+                notify('Go online once to download offline data.', 'warning');
+            }
+            return;
+        }
+
+        preloadInProgress = true;
+        updatePreloadButtonState();
+
+        var okCount = 0;
+        var failCount = 0;
+        var failedUrls = [];
+
+        for (var i = 0; i < urls.length; i += 1) {
+            var target = urls[i];
+            try {
+                var headers = { 'X-Requested-With': 'XMLHttpRequest' };
+                if (target.indexOf('/api/') !== -1) {
+                    headers['Accept'] = 'application/json';
+                }
+                var response = await fetch(target, {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: headers
+                });
+                if (response && response.ok) {
+                    okCount += 1;
+                } else {
+                    failCount += 1;
+                    failedUrls.push(target);
+                }
+            } catch (error) {
+                failCount += 1;
+                failedUrls.push(target);
+            }
+        }
+
+        writePreloadMeta({
+            lastCompletedAt: new Date().toISOString(),
+            lastSuccessCount: okCount,
+            lastFailCount: failCount
+        });
+        writeFailedPreloadUrls(failedUrls);
+
+        preloadInProgress = false;
+        updatePreloadButtonState();
+
+        if (silent) {
+            if (failCount > 0) {
+                console.info('[Advance Billing] Background offline preload: success ' + okCount + ', failed ' + failCount);
+            }
+            return;
+        }
+
+        if (failCount > 0) {
+            notify('Offline data download finished. Success: ' + okCount + ', Failed: ' + failCount + '.', 'warning');
+            return;
+        }
+        notify(successMessagePrefix + ' ' + okCount + ' dataset(s).', 'success');
+    }
+
+    async function preloadOfflineData() {
+        await preloadUrls(getOfflinePreloadUrls(), 'Offline data download complete for');
+    }
+
+    async function retryFailedOfflinePreload() {
+        var failedUrls = readFailedPreloadUrls();
+        if (!failedUrls.length) {
+            notify('No failed offline URLs to retry.', 'success');
+            updatePreloadButtonState();
+            return;
+        }
+        await preloadUrls(failedUrls, 'Retry complete. Cached');
+    }
+
+    window.addEventListener('abs:offline-preload-request', function (e) {
+        if (e && e.detail && e.detail.silent) {
+            if (!navigator.onLine || preloadInProgress) {
+                return;
+            }
+            var intervalMs = getAutoPreloadIntervalMs();
+            var last = 0;
+            try {
+                last = parseInt(localStorage.getItem(AUTO_PRELOAD_LAST_KEY) || '0', 10);
+            } catch (err) {
+                last = 0;
+            }
+            if (intervalMs > 0 && (Date.now() - last) < intervalMs) {
+                return;
+            }
+            try {
+                localStorage.setItem(AUTO_PRELOAD_LAST_KEY, String(Date.now()));
+            } catch (err) {
+                // No-op.
+            }
+            preloadUrls(getOfflinePreloadUrls(), '', { silent: true });
+            return;
+        }
+        preloadOfflineData();
+    });
+
     function updateStatusPill() {
         if (!statusPill) {
             statusPill = ensureStatusPill();
         }
+        updatePreloadButtonState();
 
         var count = queueCount();
         var online = navigator.onLine;
@@ -1085,7 +1866,7 @@
             statusPill.style.display = 'block';
             statusPill.style.background = 'rgba(243, 156, 18, 0.95)';
             statusPill.style.color = '#fff';
-            statusPill.innerText = 'Offline mode' + (count ? ' • Pending: ' + count : '');
+            statusPill.innerText = 'Offline mode • Cached data enabled' + (count ? ' • Pending sync: ' + count : '');
             return;
         }
 
@@ -1188,6 +1969,83 @@
             return false;
         }
         return true;
+    }
+
+    function requestShouldUseReadCache(url, method) {
+        var m = (method || 'GET').toUpperCase();
+        if (m !== 'GET') {
+            return false;
+        }
+        if (!sameOrigin(url)) {
+            return false;
+        }
+        if (isExcludedPath(url)) {
+            return false;
+        }
+        return true;
+    }
+
+    function canCacheResponse(response) {
+        if (!response || !response.ok) {
+            return false;
+        }
+        var contentType = String(response.headers.get('Content-Type') || '').toLowerCase();
+        return (
+            contentType.includes('application/json') ||
+            contentType.includes('text/html') ||
+            contentType.includes('text/plain') ||
+            contentType.includes('text/csv') ||
+            contentType.includes('application/javascript') ||
+            contentType.includes('text/javascript')
+        );
+    }
+
+    function cacheGetResponse(url, response) {
+        if (!requestShouldUseReadCache(url, 'GET') || !canCacheResponse(response)) {
+            return;
+        }
+
+        response.clone().text().then(function (bodyText) {
+            if (typeof bodyText !== 'string' || bodyText.length > GET_CACHE_MAX_BODY_SIZE) {
+                return;
+            }
+
+            var map = readGetCacheMap();
+            var key = normalizeCacheUrl(url);
+            map[key] = {
+                status: response.status || 200,
+                statusText: response.statusText || 'OK',
+                body: bodyText,
+                contentType: response.headers.get('Content-Type') || 'text/plain',
+                savedAt: new Date().toISOString()
+            };
+            writeGetCacheMap(trimGetCacheMap(map));
+        }).catch(function () {
+            // No-op: caching is best-effort.
+        });
+    }
+
+    function buildOfflineReadResponse(url) {
+        var item = getOfflineReadCacheItem(url);
+        if (!item || typeof item.body !== 'string') {
+            return null;
+        }
+
+        var headers = new Headers();
+        headers.set('Content-Type', item.contentType || 'text/plain');
+        headers.set('X-Offline-Cache', '1');
+
+        return new Response(item.body, {
+            status: item.status || 200,
+            statusText: item.statusText || 'OK',
+            headers: headers
+        });
+    }
+
+    function getOfflineReadCacheItem(url) {
+        var key = normalizeCacheUrl(url);
+        var map = readGetCacheMap();
+        return map[key] || null;
     }
 
     function formShouldBeQueued(form) {
@@ -1351,6 +2209,21 @@
         }
 
         var nativeFetch = window.fetch.bind(window);
+        function queueAndResolveOffline(url, method, init) {
+            var queued = queueFetchRequest(url, method, init || {});
+            if (queued.error === 'file_not_supported') {
+                notify('Offline queue does not support file upload yet.', 'error');
+                throw new Error('Offline file upload not supported');
+            }
+            if (queued.error === 'unsupported_body') {
+                notify('Could not queue this offline request type.', 'error');
+                throw new Error('Unsupported offline request body');
+            }
+
+            notify('No internet. Request saved offline and queued for sync.', 'warning');
+            return buildOfflineSuccessResponse();
+        }
+
         window.fetch = function (input, init) {
             var request = null;
             if (typeof Request !== 'undefined' && input instanceof Request) {
@@ -1367,21 +2240,36 @@
             }
 
             if (!navigator.onLine && requestShouldBeQueued(url, method)) {
-                var queued = queueFetchRequest(url, method, init || {});
-                if (queued.error === 'file_not_supported') {
-                    notify('Offline queue does not support file upload yet.', 'error');
-                    return Promise.reject(new Error('Offline file upload not supported'));
+                try {
+                    return Promise.resolve(queueAndResolveOffline(url, method, init));
+                } catch (error) {
+                    return Promise.reject(error);
                 }
-                if (queued.error === 'unsupported_body') {
-                    notify('Could not queue this offline request type.', 'error');
-                    return Promise.reject(new Error('Unsupported offline request body'));
-                }
-
-                notify('No internet. Request saved offline and queued for sync.', 'warning');
-                return Promise.resolve(buildOfflineSuccessResponse());
             }
 
-            return nativeFetch(input, init);
+            return nativeFetch(input, init).then(function (response) {
+                if (requestShouldUseReadCache(url, method)) {
+                    cacheGetResponse(url, response);
+                }
+                return response;
+            }).catch(function (error) {
+                if (requestShouldUseReadCache(url, method)) {
+                    var cachedRead = buildOfflineReadResponse(url);
+                    if (cachedRead) {
+                        notifyCachedReadFallback();
+                        return cachedRead;
+                    }
+                }
+
+                if (!requestShouldBeQueued(url, method)) {
+                    throw error;
+                }
+                try {
+                    return queueAndResolveOffline(url, method, init);
+                } catch (queueError) {
+                    throw error;
+                }
+            });
         };
     }
 
@@ -1406,6 +2294,28 @@
 
             if (String(headers['X-Offline-Sync'] || '').toLowerCase() === '1') {
                 return originalAjax.apply(window.jQuery, arguments);
+            }
+
+            if (!navigator.onLine && requestShouldUseReadCache(url, method)) {
+                var cachedItem = getOfflineReadCacheItem(url);
+                if (cachedItem) {
+                    notifyCachedReadFallback();
+                    var deferredRead = window.jQuery.Deferred();
+                    var payload = cachedItem.body;
+                    var contentType = String(cachedItem.contentType || '').toLowerCase();
+                    if (contentType.includes('application/json')) {
+                        try {
+                            payload = JSON.parse(cachedItem.body);
+                        } catch (error) {
+                            // Keep string payload if JSON parse fails.
+                        }
+                    }
+                    if (typeof opts.success === 'function') {
+                        opts.success(payload, 'success', { status: cachedItem.status || 200 });
+                    }
+                    deferredRead.resolve(payload, 'success', { status: cachedItem.status || 200 });
+                    return deferredRead.promise();
+                }
             }
 
             if (!navigator.onLine && requestShouldBeQueued(url, method)) {
@@ -1486,13 +2396,23 @@
         updateStatusPill();
         flushQueue();
     });
-    window.addEventListener('offline', updateStatusPill);
+    window.addEventListener('offline', function () {
+        updateStatusPill();
+        updatePreloadButtonState();
+    });
     window.addEventListener('load', function () {
         updateStatusPill();
         interceptFetchForOfflineQueue();
         interceptJqueryAjaxForOfflineQueue();
         bindOfflineQueueToForms();
+        preloadButton = ensurePreloadButton();
+        preloadMetaLabel = ensurePreloadMetaLabel();
+        retryPreloadButton = ensureRetryPreloadButton();
+        preloadButton.addEventListener('click', preloadOfflineData);
+        retryPreloadButton.addEventListener('click', retryFailedOfflinePreload);
+        updatePreloadButtonState();
         flushQueue();
+        scheduleAutoBackgroundPreload();
     });
 })();
 </script>

@@ -72,6 +72,68 @@ Role slugs: `super_admin`, `admin`, `employee`, `ca_accountant`.
 - **Security**: Uploads stored locally; optional auto-delete after extraction (`INVOICE_OCR_AUTO_DELETE_IMAGE`).
 - **PWA**: `manifest.json` and service worker (`sw.js`) for installable web app on mobile and laptop.
 
+### Offline-first Features (Added)
+
+- **Offline save queue**: Create/update/delete operations are saved locally when internet is unavailable, then auto-synced when online.
+- **Network-failure fallback queueing**: Write requests are also queued if the request fails due to runtime network errors (even if `navigator.onLine` is inaccurate).
+- **Offline read cache**: Successful same-origin `GET` responses (JSON/HTML/text) are cached in local storage and reused when offline.
+- **Module/table visibility offline**: Previously loaded pages and table/list data continue to display without internet.
+- **Service worker runtime caching**: Updated caching strategy for navigation and runtime GET requests with offline fallback.
+- **Offline data pre-download button**: `Download Offline Data` preloads core modules and API datasets for offline use.
+- **Automatic background preload**: After each full page load (when online), the same preload runs in the background after ~2.5s **without toast popups** (default: at most once every **10 minutes** per browser). Adjust interval in browser DevTools → Application → Local Storage:
+  - Key `abs-offline-auto-interval-min`: minutes between auto-runs (`0` or `every` = run on **every** page load — heavier on server).
+- **Retry failed preload URLs**: Failed preload endpoints are tracked and can be retried via `Retry Failed Offline URLs`.
+- **Preload status metadata**: Last download timestamp + success/failure counts are shown in-app and persisted locally.
+
+#### Current limitations
+
+- File uploads are not queued for offline sync.
+- Data must be loaded once (or pre-downloaded) before it is available offline.
+
+#### Offline preload troubleshooting
+
+- **Success: 0 / all failed**: Usually `APP_URL` host did not match how you open the site (e.g. `http://localhost` vs `http://127.0.0.1`). Preload now uses **relative URLs** so cookies stay on the same host. Also ensure `bootstrap/app.php` has **`statefulApi()`** so `/api/*` accepts your **web session** (Sanctum).
+- **Custom WAMP vhost**: Add your hostname to `SANCTUM_STATEFUL_DOMAINS` in `.env` if API preload still returns 401.
+
+### Quick Actions (Billing Shortcuts)
+
+Quick Actions is available in authenticated app pages (`layouts/app.blade.php`) to quickly open core billing workflows.
+
+#### Open palette
+
+- **Windows/Linux**: `Ctrl + K`
+- **Mac**: `Cmd + K`
+
+#### Run actions inside palette
+
+- **Enter**: Open first (top) search result
+- **1-9**: Open visible result position 1 to 9
+- **0**: Open visible result position 10
+- **Esc**: Close palette
+
+#### Current action list
+
+1. Create Sale Bill
+2. Create Purchase Bill
+3. Create Sales Return
+4. Create Purchase Return
+5. Create GST Invoice
+6. Invoice List
+7. Master Setup
+8. Accounting
+9. Reports
+10. AI Invoice Scan
+11. Download Offline Data
+
+#### Notes
+
+- Number shortcuts act on the **currently filtered list**, not only the default order.
+- Key `0` is mapped to the 10th visible item.
+- If fewer items are visible after searching, only available shortcut numbers are active.
+- Use **Manage** button in the Quick Actions header to enable/disable actions from a panel.
+- Manage panel preferences are saved in browser local storage per user/device.
+- You can also open Manage from sidebar: **Admin Panel -> Manage Quick Actions**.
+
 ---
 
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
