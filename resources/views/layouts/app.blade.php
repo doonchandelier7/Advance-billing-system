@@ -853,6 +853,11 @@
             </nav>
             {{-- Offline tools: below sidebar menu (full width, scrolls with sidebar) --}}
             <div id="absSidebarOfflineHost" class="abs-sidebar-offline-host px-3 pb-3 mt-2 pt-3">
+                @if (! request()->secure() && ! in_array(request()->getHost(), ['localhost', '127.0.0.1'], true))
+                    <div class="alert alert-warning py-2 px-2 mb-2 small" style="font-size:10px; line-height:1.35;">
+                        <strong>Offline / PWA:</strong> Browsers only enable the service worker on <strong>HTTPS</strong> (or localhost). On plain <code>http://</code> + IP, pages usually <strong>cannot open when the network is off</strong>. Use HTTPS on your server for real offline support.
+                    </div>
+                @endif
                 <div class="nav-header text-uppercase" style="opacity:.85;">Offline</div>
                 <button type="button" id="offlinePreloadRetryButton" class="btn btn-sm w-100 mb-2" style="display:none; background: linear-gradient(135deg,#fd7e14,#e8590c); color:#fff; border:0; font-weight:700; font-size:11px;">Retry Failed Offline URLs</button>
                 <div id="offlinePreloadMetaLabel" class="w-100 mb-2 p-2 rounded" style="display:none; font-size:11px; font-weight:600; color:#eaf8f4; background:rgba(0,92,72,0.92); box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>

@@ -92,7 +92,9 @@ Role slugs: `super_admin`, `admin`, `employee`, `ca_accountant`.
 
 #### Offline preload troubleshooting
 
-- **Success: 0 / all failed**: Usually `APP_URL` host did not match how you open the site (e.g. `http://localhost` vs `http://127.0.0.1`). Preload now uses **relative URLs** so cookies stay on the same host. Also ensure `bootstrap/app.php` has **`statefulApi()`** so `/api/*` accepts your **web session** (Sanctum).
+- **`ERR_ADDRESS_UNREACHABLE` / nothing works when internet is off**: The browser must reach your server to load the app the first time. After that, **offline pages need a registered service worker**. Chrome (and most browsers) **only allow service workers on HTTPS** or **localhost** — **not** on `http://YOUR_PUBLIC_IP:port`. So on plain HTTP + IP, offline shell caching usually **does not run**; use **HTTPS** (e.g. Let’s Encrypt + domain) for production offline/PWA behavior.
+- **Wrong URL**: Master Setup is **`/modules/master-setup`** (hyphen). **`/modules/master_setup`** (underscore) is redirected automatically to the correct path.
+- **Success: 0 / all failed**: Usually `APP_URL` host did not match how you open the site (e.g. `http://localhost` vs `http://127.0.0.1`). Preload uses **relative URLs** so cookies stay on the same host. Also ensure `bootstrap/app.php` has **`statefulApi()`** so `/api/*` accepts your **web session** (Sanctum).
 - **Custom WAMP vhost**: Add your hostname to `SANCTUM_STATEFUL_DOMAINS` in `.env` if API preload still returns 401.
 
 ### Quick Actions (Billing Shortcuts)

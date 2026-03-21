@@ -27,6 +27,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
+    // Common URL typo / bookmarks (underscore vs hyphen)
+    Route::redirect('/modules/master_setup', '/modules/master-setup', 301);
+
     // Master Setup (Categories, Units, Vendors, Customers, Products)
     Route::get('/modules/master-setup', [MasterSetupController::class, 'index'])->name('modules.master-setup');
     Route::post('/modules/master-setup/categories', [MasterSetupController::class, 'storeCategory'])->name('modules.master-setup.categories.store');
